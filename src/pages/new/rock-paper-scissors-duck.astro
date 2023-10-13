@@ -1,0 +1,78 @@
+---
+import Layout from "../../layouts/Layout.astro";
+---
+
+<Layout title="Rock, Paper, Scissors, Duck">
+	<main>
+		<form transition:name="RPSD" action="/new" method="get">
+			<h3>Rock Paper Scissors Duck</h3>
+			<input type="hidden" name="game" value="rpsd" />
+			<input type="text" placeholder="Name" name="room" />
+			<button>Create</button>
+		</form>
+		<a href="/new/simon-says">
+			<button transition:name="SS">Simon says</button>
+		</a>
+	</main>
+</Layout>
+
+<style>
+	:root h1 {
+		display: flex;
+		flex-direction: column;
+	}
+	.rock {
+		color: #610202;
+		view-transition-name: rock;
+	}
+	.paper {
+		color: #5e6102;
+		view-transition-name: paper;
+	}
+	.scissors {
+		color: #025e61;
+		view-transition-name: scissors;
+	}
+	.duck {
+		color: #f01dbb;
+		view-transition-name: duck;
+	}
+	main {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		height: 100vh;
+	}
+
+	form {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		background-color: #00ff80;
+		border: 3px solid #575757;
+		border-radius: 5px;
+		padding: 0.5rem;
+	}
+
+	input {
+		padding: 0.5rem;
+		margin: 0.5rem;
+		border: 3px solid #575757;
+		border-radius: 5px;
+	}
+
+	button {
+		min-width: 150px;
+		padding: 0.5rem;
+		margin: 0.5rem;
+		border: 3px solid #575757;
+		border-radius: 5px;
+		color: #000;
+		background-color: #00ff80;
+		font-weight: bold;
+		cursor: pointer;
+		text-transform: uppercase;
+	}
+</style>

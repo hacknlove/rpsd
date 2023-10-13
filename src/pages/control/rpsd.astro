@@ -1,0 +1,26 @@
+---
+import Layout from "@/layouts/Layout.astro";
+---
+
+<Layout title="Rock, Paper, Scissors, Duck">
+    <script src="@/js/controlRpsd.js"></script>
+    <main>
+        <h1>Rock, Paper, Scissors, Duck</h1>
+        <button id="copyPlayerLink">
+            Copy Player Link
+        </button>
+
+        <h2>Connected Players</h2>
+        <label id="connected">0</label>
+    </main>
+</Layout>
+
+<style>
+    main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+    }
+</style>

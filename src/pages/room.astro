@@ -1,0 +1,93 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Room">
+    <script type="application/javascript">
+        const url = new URL(location.href);
+        document.title = `Room - ${url.searchParams.get("room")}`;
+
+        const websocket = new WebSocket(`ws://${url.host}/rooms${url.search}`);
+
+        websocket.addEventListener("message", (event) => {
+            console.log("Message received from server");
+            console.log(event.data);
+        });
+
+        websocket.addEventListener("open", (event) => {
+            console.log("Connection established");
+            setInterval(() => {
+                websocket.send('MESSAGE from client');
+            }, 10000);
+        });
+
+
+    </script>
+
+    <main>
+		<h1>
+			<span class="rock">🪨 Rock</span>
+			<span class="paper">📜 Paper</span>
+			<span class="scissors">✂️ Scissors</span>
+			<span class="duck">🦆 Duck</span>
+		</h1>
+        <script type="application/javascript">
+			document.startViewTransition ??= (cb) => cb();
+			const h1 = document.currentScript.previousElementSibling;
+			const randomEmoji = () => {
+				const emojis = h1.querySelectorAll("span");
+				return emojis[
+					Math.floor(Math.random() * emojis.length - 1) + 1
+				];
+			};
+			console.log(randomEmoji());
+
+			const interval = setInterval(() => {
+				document.startViewTransition(() => {
+					const newOrder = [];
+					while (true) {
+						const emoji = randomEmoji();
+						if (!emoji) break;
+						newOrder.push(emoji);
+						emoji.remove();
+					}
+					newOrder.forEach((emoji) => h1.prepend(emoji));
+				});
+			}, 2000);
+		</script>
+
+        <div id="players"></div>
+    </main>
+</Layout>
+
+<style>
+    	:root h1 {
+		display: flex;
+		flex-direction: column;
+	}
+	.rock {
+		color: #610202;
+		view-transition-name: rock;
+	}
+	.paper {
+		color: #5e6102;
+		view-transition-name: paper;
+	}
+	.scissors {
+		color: #025e61;
+		view-transition-name: scissors;
+	}
+	.duck {
+		color: #f01dbb;
+		view-transition-name: duck;
+	}
+    main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        padding: 1rem;
+        box-sizing: border-box;
+    }
+</style>
