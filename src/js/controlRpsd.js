@@ -1,30 +1,24 @@
 import { fetchRest } from "./fetchRest";
 
-const currentUrl = new URL(window.location.href);
-
 const wsUrl = new URL("/api/ws", window.location.href);
 
 wsUrl.search = location.search;
 wsUrl.protocol = wsUrl.protocol.replace("http", "ws");
-wsUrl.searchParams.set("game", "rpsd");
-wsUrl.searchParams.set("name", currentUrl.searchParams.get("name"));
 
 const websocket = new WebSocket(wsUrl.toString());
 
 websocket.addEventListener("open", (event) => {
-  console.log("Connection established");
-  console.log(event);
+  console.debug("Connection established");
+  console.debug(event);
 });
 
 websocket.addEventListener("message", (event) => {
-  console.log("Message received from server");
-  console.log(event.data);
+  console.debug("Message received from server");
+  console.debug(event.data);
 });
 
 async function copyPlayerLink() {
   const link = await fetchRest("getOpenLink", {});
-
-  console.log(link);
 
   if (link.error) {
     alert("An error occurred while generating the link");
@@ -46,4 +40,4 @@ function ready() {
   playerLink.addEventListener("click", copyPlayerLink);
 }
 
-document.addEventListener("astro:page-load", ready);
+document.addEventListener("DOMContentLoaded", ready);

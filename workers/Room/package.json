@@ -1,5 +1,5 @@
 {
-	"name": "Room",
+	"name": "engine",
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
@@ -7,6 +7,6 @@
 		"start": "wrangler dev"
 	},
 	"devDependencies": {
-		"wrangler": "^3.0.0"
+		"wrangler": "^3.13.1"
 	}
 }

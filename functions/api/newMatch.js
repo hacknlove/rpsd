@@ -1,5 +1,38 @@
+import { z } from "zod";
 import { fetchDO } from "lib/getStub";
+import { signData, signSearchParams } from "lib/sign";
+import { sendRestJSON } from "lib/sendRestJSON";
 
-export function onRequest(context) {
-  return fetchDO(context, "newMatch");
+const schema = z.object({
+  startsAt: z.string().datetime(),
+  password: z.string(),
+});
+
+export async function onRequest(context) {
+  const data = await context.request.json();
+
+  context.request.json = () => data;
+
+  data.password = await signData(context.env.SALT, data.name + data.password);
+
+  const response = await fetchDO({ context, action: "newMatch", schema }).then(
+    (r) => r.json(),
+  );
+
+  if (response.error) {
+    return sendRestJSON(response);
+  }
+
+  const searchParams = new URLSearchParams({
+    name: data.name,
+    game: data.game,
+    id: response.id,
+    password: data.password,
+  });
+
+  await signSearchParams(context.env.SALT, searchParams);
+
+  return sendRestJSON({
+    search: searchParams.toString(),
+  });
 }

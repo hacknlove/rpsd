@@ -2,7 +2,6 @@
 interface Props {
 	title: string;
 }
-import { ViewTransitions } from 'astro:transitions';
 
 
 const { title } = Astro.props;
@@ -17,8 +16,7 @@ const { title } = Astro.props;
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
-		<ViewTransitions />
-		<script client:only type="application/javascript">document.startViewTransition??=cb=>cb();</script>
+		<script type="application/javascript">document.startViewTransition??=cb=>cb();</script>
 	</head>
 	<body>
 		<slot />

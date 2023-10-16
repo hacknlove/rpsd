@@ -1,4 +1,12 @@
 import { fetchDO } from "lib/getStub";
+import { sendRestJSON } from "lib/sendRestJSON";
+import { signSearchParams, verifySearchParams } from "lib/sign";
+import { z } from "zod";
+
+const schema = z.object({
+  id: z.string(),
+  mode: z.string(),
+});
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
@@ -9,25 +17,32 @@ export async function onRequest(context) {
     }
   });
 
-  const response = await fetchDO(
-    context,
-    "joinOpen",
-    null,
-    url.searchParams.toString(),
-  );
-
-  console.log(response);
-
-  if (response.error) {
-    return new Response(response.error, {
-      status: 400,
+  if (!verifySearchParams(context.env.SALT, url.searchParams)) {
+    return new Response("Invalid Signature", {
+      status: 403,
     });
   }
+
+  const isAvailable = await fetchDO({
+    context,
+    action: "isAvailable",
+    schema,
+  });
+
+  if (isAvailable.error) {
+    return sendRestJSON(isAvailable);
+  }
+
+  url.searchParams.delete("_s");
+  url.searchParams.delete("mode");
+  url.searchParams.set("playerId", crypto.randomUUID());
+
+  signSearchParams(context.env.SALT, url.searchParams);
 
   return new Response(null, {
     status: 302,
     headers: {
-      Location: `/play/rpsd?${response.search}`,
+      Location: `/play/${url.searchParams.get("game")}${url.search}`,
     },
   });
 }

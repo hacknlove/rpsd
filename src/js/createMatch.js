@@ -4,16 +4,16 @@ function dateFromNowToString(ms = 0) {
   return new Date(Date.now() + ms).toISOString().replace(/\..*?$/, "");
 }
 
-function initStartAt() {
-  const startAt = document.querySelector('input[name="startsAt"]');
+function initStartsAt() {
+  const startsAt = document.querySelector('input[name="startsAt"]');
 
-  startAt.setAttribute("min", dateFromNowToString());
-  startAt.setAttribute("max", dateFromNowToString(7 * 24 * 60 * 60 * 1000));
-  startAt.setAttribute("value", dateFromNowToString(60 * 60 * 1000));
+  startsAt.setAttribute("min", dateFromNowToString());
+  startsAt.setAttribute("max", dateFromNowToString(7 * 24 * 60 * 60 * 1000));
+  startsAt.setAttribute("value", dateFromNowToString(60 * 60 * 1000));
 }
 
 function ready() {
-  initStartAt();
+  initStartsAt();
 
   const form = document.querySelector("form");
   const button = form.querySelector("button");
@@ -29,12 +29,13 @@ function ready() {
       button.disabled = true;
     });
 
-    const response = await fetchRest(
-      "newMatch",
-      Object.fromEntries(new FormData(form)),
-    );
+    const JSON = Object.fromEntries(new FormData(form));
 
-    console.log(response);
+    if (!JSON.startsAt.endsWith("Z")) {
+      JSON.startsAt = JSON.startsAt + "Z"; // fix for zod validator
+    }
+
+    const response = await fetchRest("newMatch", JSON);
 
     if (response.error) {
       return document.startViewTransition(() => {
@@ -63,13 +64,11 @@ function ready() {
 
     const url = new URL(`/control/${form.game.value}`, location);
 
-    url.searchParams.set("name", form.name.value);
-    url.searchParams.set("token", response.token);
-    url.searchParams.set("game", form.game.value);
+    url.search = response.search;
 
     form.insertAdjacentHTML("afterend", `<a href="${url}"></a>`);
     form.nextElementSibling.click();
   });
 }
 
-document.addEventListener("astro:page-load", ready);
+document.addEventListener("DOMContentLoaded", ready, { once: true });

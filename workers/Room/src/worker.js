@@ -1,6 +1,5 @@
 import { verifySearchParams } from 'lib/sign';
 import { signSearchParams } from './sign';
-import { z } from 'zod';
 
 export default {
 	async fetch() {
@@ -26,10 +25,62 @@ export class Room {
 		this.controlers = new Set();
 	}
 
-	async ws() {
+	async update({ closing = false } = {}) {
+		let totalPlayers = this.state.getWebSockets('players').length;
+
+		if (closing) {
+			totalPlayers -= 1;
+		}
+
+		const everyone = this.state.getWebSockets();
+
+		const data = JSON.stringify({
+			type: 'update',
+			totalPlayers,
+			status: await this.storage.get('status'),
+			startsAt: await this.storage.get('startsAt'),
+		});
+
+		everyone.forEach((ws) => {
+			ws.send(data);
+		});
+	}
+
+	async ws(request) {
+		const tags = [];
+		const url = new URL(request.url);
+
+		if (url.searchParams.get('id') !== this.id) {
+			return sendRestJSON({
+				error: 'Wrong id',
+			});
+		}
+		const password = url.searchParams.get('password');
+
+		const playerId = url.searchParams.get('playerId');
+
+		if (password) {
+			tags.push('admin');
+			tags.push(password);
+			if (password !== (await this.storage.get('password'))) {
+				return sendRestJSON({
+					error: 'Wrong password',
+				});
+			}
+		} else if (playerId) {
+			tags.push('players');
+			tags.push(playerId);
+		} else {
+			return sendRestJSON({
+				error: 'Missing password or playerId',
+			});
+		}
+
 		const { 0: clientWebSocket, 1: serverWebSocket } = new WebSocketPair();
 
-		this.state.acceptWebSocket(serverWebSocket);
+		this.state.acceptWebSocket(serverWebSocket, tags);
+
+		this.update();
 
 		return new Response(null, { status: 101, webSocket: clientWebSocket });
 	}
@@ -41,82 +92,113 @@ export class Room {
 	}
 
 	async webSocketClose(ws) {
+		this.update({ closing: true });
 		ws;
 	}
 
-	async webSocketError(ws) {
+	async webSocketError(ws, error) {
+		this.update();
 		ws;
+		console.error(error);
 	}
 
 	async webSocketMessage(ws, msg) {
 		const data = JSON.parse(msg);
 
+		console.debug(ws.tags);
+
 		switch (data.type) {
 			case 'play':
 				break;
 			default:
-				console.log(data);
+				console.debug(data);
 		}
 	}
 
-	async newMatch(request) {
-		let startsAt = await this.storage.get('startsAt');
-		if (startsAt) {
-			if (startsAt > Date.now() || this.state.getWebSockets().size > 0) {
-				return sendRestJSON({
-					error: 'The name is currently in use',
-				});
-			}
+	async loginAdmin(request, error) {
+		const password = await this.storage.get('password');
 
-			await this.storage.deleteAll();
+		const data = await request.json();
+
+		if (password !== data.password) {
+			return sendRestJSON({
+				error,
+			});
 		}
 
-		const token = crypto.randomUUID();
-		await this.storage.put('token', token);
+		return sendRestJSON({
+			id: this.id,
+		});
+	}
+	async newMatch(request) {
+		const status = await this.storage.get('status');
+		switch (status) {
+			case 'playing':
+			case 'waiting':
+				return this.loginAdmin(request, 'The name is being used and the password is wrong');
+			case 'reserved':
+				return this.loginAdmin(request, 'The name is reserved and the password is wrong');
+			case 'ended':
+			default:
+				await this.storage.deleteAll();
+		}
 
-		const json = await request.json();
+		const { name, game, startsAt, password } = await request.json();
 
-		const name = z.string().parse(json.name);
-		const game = z.string().parse(json.game);
-
-		startsAt = new Date(
-			z
-				.string()
-				.datetime()
-				.parse(json.startsAt + 'Z'),
-		).getTime();
+		const startsAtms = new Date(startsAt).getTime();
 
 		await this.storage.put({
 			name,
 			game,
-			startsAt,
+			status: 'waiting',
+			password,
+			startsAt: startsAtms,
 		});
 
-		this.storage.setAlarm(new Date(startsAt).getTime());
+		this.storage.setAlarm(startsAtms);
 
 		return sendRestJSON({
-			token,
+			id: this.id,
 		});
 	}
 
-	async getOpenLink(request) {
-		const token = await this.storage.get('token');
+	async isAdmin(request) {
+		const password = await this.storage.get('password');
 		const data = await request.json();
 
-		if (token !== data.token) {
+		if (password !== data.password || this.id !== data.id) {
 			return sendRestJSON({
-				error: 'Wrong token',
+				error: 'Wrong password',
 			});
 		}
 
-		const search = new URLSearchParams(data);
-		search.delete('token');
+		return sendRestJSON({});
+	}
 
-		await signSearchParams(token, search);
+	async isAvailable(request) {
+		const data = await request.json();
 
-		return sendRestJSON({
-			search: search.toString(),
-		});
+		if (data.id !== this.id) {
+			return sendRestJSON({
+				error: 'Wrong id',
+			});
+		}
+
+		const status = await this.storage.get('status');
+
+		if (status === 'playing') {
+			return sendRestJSON({
+				error: 'The Game has already started',
+			});
+		}
+
+		if (status !== 'waiting') {
+			return sendRestJSON({
+				error: 'The Game is not available',
+			});
+		}
+
+		return sendRestJSON({});
 	}
 
 	async joinOpen(request) {
@@ -160,24 +242,27 @@ export class Room {
 				case '/newMatch':
 					return await this.newMatch(request);
 				case '/ws':
-					return await this.ws();
-				case '/getOpenLink': {
-					return await this.getOpenLink(request);
+					return await this.ws(request);
+				case '/isAdmin': {
+					return await this.isAdmin(request);
 				}
 				case '/joinOpen': {
 					return await this.joinOpen(request);
 				}
 				default:
-					return await new Response(null, { status: 404 });
+					return sendRestJSON({
+						error: 'Not found',
+					});
 			}
 		} catch (error) {
 			if (error.issues) {
-				console.log(JSON.stringify(error.issues, null, 2));
+				console.error(JSON.stringify(error.issues, null, 2));
 				return sendRestJSON({
 					status: 400,
 					error: error.issues.map((issue) => issue.message).join(', '),
 				});
 			}
+			console.error(error);
 			return sendRestJSON({
 				status: 500,
 				error: error.message,

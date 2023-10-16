@@ -11,14 +11,18 @@ import Layout from "../layouts/Layout.astro";
 			<label>Name of the room:</label>
 			<input required type="text" placeholder="Name" name="name" />
 
+			
 			<label>Kind of game:</label>
 			<select name="game">
 				<option value="rpsd">Rock, Paper, Scissors, Duck</option>
 				<option value="ss">Simon says</option>
 			</select>
-
+			
 			<label>starts at:</label>
 			<input type="datetime-local" name="startsAt" />
+
+			<label>Admin Password</label>
+			<input required type="password" placeholder="Password" name="password" required />
 
 			<label>Create:</label>
 			<button>Create</button>

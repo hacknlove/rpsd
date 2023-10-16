@@ -23,7 +23,7 @@ export async function fetchRest(action, data, options = {}) {
 
   if (!response.ok) {
     return {
-      error: response.statusText,
+      error: "Something went wrong",
     };
   }
 

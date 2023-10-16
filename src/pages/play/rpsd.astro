@@ -1,0 +1,121 @@
+---
+import Layout from '@/layouts/Layout.astro';
+---
+
+<Layout title="Welcome to Astro.">
+    <main>
+        <button id="rock"><span class="emoji">🪨</span> Rock</button>
+        <button id="paper"><span class="emoji">📜</span> Paper</button>
+        <button id="scissors"><span class="emoji">✂️</span> Scissors</button>
+        <button id="duck"><span class="emoji">🦆</span> Duck</button>
+    </main>
+    <script src="@/js/playRpsd.js"></script>
+    <div id="countDown">
+        <h1>9</h1>
+    </div>
+</Layout>
+
+<style>
+    main {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        grid-template-areas: "rock paper" "scissors duck";
+        align-items: center;
+        
+        justify-items: center;
+        height: 100vh;
+    }
+
+    button {
+        font-size: 2rem;
+        padding: 1rem;
+        border: 3px solid #0002;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        box-shadow: 5px 5px 50px 10px #fffa, inset 1px 1px 5px 3px #0002;
+    }
+
+    button:hover {
+        transform: scale(1.1);
+    }
+
+    #rock {
+        grid-area: rock;
+        background-color: #f94144;
+        color: #fff;
+    }
+
+    #paper {
+        grid-area: paper;
+        background-color: #f3722c;
+        color: #fff;
+    }
+
+    #scissors {
+        grid-area: scissors;
+        background-color: #f8961e;
+        color: #fff;
+    }
+
+    #duck {
+        grid-area: duck;
+        background-color: #f9c74f;
+        color: #fff;
+    }
+
+    #countDown {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        height: 20rem;
+        width: 20rem;
+        font-size: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f9c74f90;
+        z-index: -1;
+        overflow: hidden;
+        border: 50px solid #f9c74f90;
+        box-shadow: 5px 5px 50px 10px #f9c74f90;
+    }
+    #countDown.started {
+        animation: countDown 1s ease-in-out 0s forwards infinite;
+    }
+
+    .emoji {
+        pointer-events: none;
+    }
+
+    @keyframes countDown {
+        0% {
+            height: 0;
+            width: 0;
+            background-color: #f9c74fff;
+            border-width: 0px;
+            border-color: #f9c74fff;
+        }
+        20% {
+            height: 20rem;
+            width: 20rem;
+            background-color: #f9c74f90;
+            border-color: #f9c74f90;
+            border-width: 0px;
+        }
+        50% {
+            border-width: 50px;
+        }
+        100% {
+            height: 0;
+            width: 0;
+            background-color: #f9c74fff;
+            border-width: 0px;
+            border-color: #f9c74fff;
+        }
+    }
+
+</style>
