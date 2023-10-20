@@ -78,6 +78,11 @@ export class Room {
 
 		const { 0: clientWebSocket, 1: serverWebSocket } = new WebSocketPair();
 
+		serverWebSocket.serializeAttachment({
+			playerId,
+			isPlayer: Boolean(playerId),
+			isAdmin: Boolean(password),
+		});
 		this.state.acceptWebSocket(serverWebSocket, tags);
 
 		this.update();
@@ -97,7 +102,7 @@ export class Room {
 	}
 
 	async webSocketError(ws, error) {
-		this.update();
+		this.update({ closing: true });
 		ws;
 		console.error(error);
 	}
