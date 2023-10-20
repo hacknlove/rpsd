@@ -16,14 +16,16 @@
   },
   "dependencies": {
     "@astrojs/cloudflare": "^7.5.0",
-    "astro": "^3.2.2",
+    "@astrojs/solid-js": "^3.0.2",
+    "astro": "^3.3.2",
     "nes.css": "^2.3.0",
     "sella": "link:../wysise/sella",
+    "solid-js": "^1.8.3",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "eslint": "^8.50.0",
     "prettier": "^3.0.3",
-    "wrangler": "^3.13.1"
+    "wrangler": "^3.14.0"
   }
 }
