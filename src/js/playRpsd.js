@@ -1,14 +1,36 @@
-import { websocket } from "./connectWS";
+function update(data) {
+  console.debug("update");
+  console.debug(data);
+
+  if (!initialized) {
+    console.debug(data);
+    return;
+  }
+
+  switch (data.status) {
+    case "playing":
+      // handle when the status is playing
+      break;
+    case "waiting":
+      // handle when the status is waiting
+      break;
+    case "reserved":
+      // handle when the status is reserved
+      break;
+    case "ended":
+      // handle when the status is ended
+      break;
+    default:
+      console.debug(data);
+      break;
+  }
+}import { websocket } from "./connectWS";
 
 function start() {
   initializeGame();
   initializeCountDown();
 }
 
-function update(data) {
-  console.debug("update");
-  console.debug(data);
-}
 
 websocket.addEventListener("open", () => {
   const url = new URL(location);
