@@ -1,22 +1,53 @@
-const wsUrl = new URL("/api/ws", window.location.href);
-wsUrl.search = location.search;
-wsUrl.protocol = wsUrl.protocol.replace("http", "ws");
+let websocketTemp;
 
-export const websocket = new WebSocket(wsUrl.toString());
+function clientSide() {
+  const wsUrl = new URL("/api/ws", window.location.href);
+  wsUrl.search = location.search;
+  wsUrl.protocol = wsUrl.protocol.replace("http", "ws");
 
-let reconnect = 10;
+  websocketTemp = new WebSocket(wsUrl.toString());
 
-websocket.addEventListener("error", () => {
-  if (reconnect--) {
+  websocketTemp.addEventListener("error", () => {
+    const hashData = new URLSearchParams(location.hash || "");
+
+    const reconnect = +(hashData.get("reconnect") || 0) + 1;
+
+    if (reconnect > 10) {
+      location.pathname = "/";
+      return
+    }
+
+    hashData.set("reconnect", reconnect);
+
     setTimeout(
       () => {
+        location.hash = hashData.toString();
         location.reload();
       },
-      1000 * (10 - reconnect),
+      1000 * (reconnect),
     );
-  }
-});
+  });
 
-websocket.addEventListener("open", () => {
-  reconnect = 10;
-});
+  websocketTemp.addEventListener("open", () => {
+    reconnect = 10;
+  });
+
+  websocketTemp.addEventListener("message", (event) => {
+    const data = JSON.parse(event.data);
+    websocket.lastEventData = data;
+  });
+}
+
+function serverSide() {
+  websocketTemp = new EventTarget();
+  websocketTemp.close = () => { };
+  websocketTemp.send = () => { };
+}
+
+if (typeof window === "undefined") {
+  serverSide();
+} else {
+  clientSide();
+}
+
+export const websocket = websocketTemp;
