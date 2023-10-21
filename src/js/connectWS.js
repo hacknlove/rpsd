@@ -14,22 +14,21 @@ function clientSide() {
 
     if (reconnect > 10) {
       location.pathname = "/";
-      return
+      return;
     }
 
     hashData.set("reconnect", reconnect);
 
-    setTimeout(
-      () => {
-        location.hash = hashData.toString();
-        location.reload();
-      },
-      1000 * (reconnect),
-    );
+    setTimeout(() => {
+      location.hash = hashData.toString();
+      location.reload();
+    }, 1000 * reconnect);
   });
 
   websocketTemp.addEventListener("open", () => {
-    reconnect = 10;
+    const hashData = new URLSearchParams(location.hash || "");
+    hashData.delete("reconnect");
+    location.hash = hashData.toString();
   });
 
   websocketTemp.addEventListener("message", (event) => {
@@ -40,8 +39,8 @@ function clientSide() {
 
 function serverSide() {
   websocketTemp = new EventTarget();
-  websocketTemp.close = () => { };
-  websocketTemp.send = () => { };
+  websocketTemp.close = () => {};
+  websocketTemp.send = () => {};
 }
 
 if (typeof window === "undefined") {
