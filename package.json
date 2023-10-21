@@ -19,6 +19,7 @@
     "@astrojs/solid-js": "^3.0.2",
     "astro": "^3.3.2",
     "nes.css": "^2.3.0",
+    "sass": "^1.69.4",
     "sella": "link:../wysise/sella",
     "solid-js": "^1.8.3",
     "zod": "^3.22.4"
