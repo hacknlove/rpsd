@@ -1,6 +1,6 @@
 import { websocket } from "@/js/connectWS";
 import { createSignal, onCleanup, onMount } from "solid-js";
-import './Header.scss';
+import "./Header.scss";
 
 export function Header() {
   const [timeToStart, setTimeToStart] = createSignal(0);
@@ -8,8 +8,6 @@ export function Header() {
 
   websocket.addEventListener("message", (event) => {
     const data = JSON.parse(event.data);
-
-    console.log(data);
 
     if (data.startsAt) {
       setTimeToStart(data.startsAt - Date.now());
@@ -25,28 +23,40 @@ export function Header() {
       setTimeToStart(websocket.lastEventData.startsAt - Date.now());
       setNumberOfPlayers(websocket.lastEventData.totalPlayers);
     }
-    console.log({ websocket });
   });
 
-  function formatedTimeToStart() {
-    const seconds = Math.floor(timeToStart / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
+  function updateTimeToStart() {
+    setTimeToStart(websocket.lastEventData.startsAt - Date.now());
+  }
 
-    if (days > 0) {
-      return `${days} day${days > 1 ? "s" : ""}`;
-    } else if (hours > 0) {
-      return `${hours} hour${hours > 1 ? "s" : ""}`;
-    } else if (minutes > 0) {
-      return `${minutes} minute${minutes > 1 ? "s" : ""}`;
-    } else {
-      return `${seconds} second${seconds !== 1 ? "s" : ""}`;
+  let nextUpdateTimeout;
+  function processInterval(miliseconds, interval, singular, plural) {
+    const raw = miliseconds / interval;
+
+    if (raw >= 1) {
+      const show = Math.floor(raw);
+      const milisecondsToNext = miliseconds - show * interval;
+
+      clearTimeout(nextUpdateTimeout);
+      nextUpdateTimeout = setTimeout(updateTimeToStart, milisecondsToNext);
+
+      return `${show} ${show > 1 ? plural : singular}`;
     }
   }
 
+  function formatedTimeToStart() {
+    const miliseconds = timeToStart();
+
+    return (
+      processInterval(miliseconds, 1000 * 60 * 60 * 24, "day", "days") ||
+      processInterval(miliseconds, 1000 * 60 * 60, "hour", "hours") ||
+      processInterval(miliseconds, 1000 * 60, "minute", "minutes") ||
+      processInterval(miliseconds, 1000, "second", "seconds")
+    );
+  }
+
   return (
-    <header>
+    <header id="Header">
       <div class="stats" id="timeToStart">
         <span>Time to start:</span>
         <span>{formatedTimeToStart()} </span>
