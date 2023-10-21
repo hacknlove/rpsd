@@ -90,10 +90,28 @@ export class Room {
 		return new Response(null, { status: 101, webSocket: clientWebSocket });
 	}
 
-	alarm() {
-		this.state.getWebSockets().forEach((ws) => {
-			ws.send('Game is starting');
-		});
+	async alarm() {
+		const webSockets = this.state.getWebSockets();
+		if (webSockets.length === 0) {
+			this.storage.deleteAll();
+			return;
+		}
+
+		const status = await this.storage.get('status');
+
+		switch (status) {
+			case 'waiting':
+				this.storage.put({
+					status: 'playing',
+					nextRound: Date.now() + 1000 * 10,
+				});
+				break;
+			case 'playing':
+				//
+				break;
+		}
+
+		this.update();
 	}
 
 	async webSocketClose(ws) {
@@ -125,6 +143,13 @@ export class Room {
 
 		const data = await request.json();
 
+		console.log(
+			{
+				password,
+			},
+			data,
+		);
+
 		if (password !== data.password) {
 			return sendRestJSON({
 				error,
@@ -136,13 +161,18 @@ export class Room {
 		});
 	}
 	async newMatch(request) {
-		const status = await this.storage.get('status');
-		switch (status) {
+		const data = await this.storage.get(['status', 'startsAt']);
+
+		console.log(data.get('startsAt'), Date.now());
+
+		if (data.get('startsAt') < Date.now() && !this.state.getWebSockets('players').length) {
+			data.set('status', 'ended');
+		}
+
+		switch (data.get('status')) {
 			case 'playing':
 			case 'waiting':
 				return this.loginAdmin(request, 'The name is being used and the password is wrong');
-			case 'reserved':
-				return this.loginAdmin(request, 'The name is reserved and the password is wrong');
 			case 'ended':
 			default:
 				await this.storage.deleteAll();
@@ -168,7 +198,10 @@ export class Room {
 	}
 
 	async isAdmin(request) {
-		const password = await this.storage.get('password');
+		const password = await this.storage.get('password', {
+			allowConcurrency: true,
+			noCache: true,
+		});
 		const data = await request.json();
 
 		if (password !== data.password || this.id !== data.id) {
@@ -239,6 +272,13 @@ export class Room {
 		});
 	}
 
+	/**
+	 * method to handle the request received by the Durable Object.
+	 * https://developers.cloudflare.com/durable-objects/get-started/
+	 *
+	 * @param {Request} request - The request to be processed.
+	 * @return {Promise<Response>} The response generated based on the request.
+	 */
 	async fetch(request) {
 		const url = new URL(request.url);
 
@@ -260,13 +300,6 @@ export class Room {
 					});
 			}
 		} catch (error) {
-			if (error.issues) {
-				console.error(JSON.stringify(error.issues, null, 2));
-				return sendRestJSON({
-					status: 400,
-					error: error.issues.map((issue) => issue.message).join(', '),
-				});
-			}
 			console.error(error);
 			return sendRestJSON({
 				status: 500,

@@ -24,13 +24,13 @@ function update(data) {
       console.debug(data);
       break;
   }
-}import { websocket } from "./connectWS";
+}
+import { websocket } from "./connectWS";
 
 function start() {
   initializeGame();
   initializeCountDown();
 }
-
 
 websocket.addEventListener("open", () => {
   const url = new URL(location);
