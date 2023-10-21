@@ -1,5 +1,6 @@
 import { websocket } from "@/js/connectWS";
 import { createSignal, onCleanup, onMount } from "solid-js";
+import './Header.scss';
 
 export function Header() {
   const [timeToStart, setTimeToStart] = createSignal(0);
