@@ -1,17 +1,14 @@
 ---
 import Layout from "@/layouts/Layout.astro";
+import { UnlimitedLinks } from "@/components/unlimitedLinks/UnlimitedLinks";
+import { Header } from "@/components/game/header/Header";
 ---
 
 <Layout title="Rock, Paper, Scissors, Duck">
-    <script src="@/js/controlRpsd.js"></script>
+    <Header client:idle />
     <main>
         <h1>Rock, Paper, Scissors, Duck</h1>
-        <button id="copyPlayerLink">
-            Copy Player Link
-        </button>
-
-        <h2>Connected Players</h2>
-        <label id="connected">0</label>
+        <UnlimitedLinks client:idle />
     </main>
 </Layout>
 
