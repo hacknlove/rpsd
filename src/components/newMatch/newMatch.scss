@@ -1,0 +1,62 @@
+form.NewMatch {
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+}
+
+form.NewMatch:invalid > button {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+form.NewMatch.loading {
+  pointer-events: none;
+  position: relative;
+  overflow: hidden;
+  &::before {
+    content: "";
+    position: fixed;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    backdrop-filter: blur(2px);
+  }
+  &::after {
+    content: "⏳";
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 100px;
+    animation: spin 5s linear infinite; /* Add animation property */
+    text-shadow: 6px 6px 4px rgba(0, 0, 0, 0.4); /* Add text-shadow property */
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+    text-shadow: 16px 16px 8px rgba(0, 0, 0, 0.4); /* Add text-shadow property */
+  }
+  25% {
+    transform: rotate(90deg);
+    text-shadow: 16px -16px 8px rgba(0, 0, 0, 0.4); /* Add text-shadow property */
+  }
+  50% {
+    text-shadow: -16px -16px 8px rgba(0, 0, 0, 0.4); /* Add text-shadow property */
+    transform: rotate(180deg);
+  }
+  75% {
+    transform: rotate(270deg);
+    text-shadow: -16px 16px 8px rgba(0, 0, 0, 0.4); /* Add text-shadow property */
+  }
+  100% {
+    transform: rotate(360deg);
+    text-shadow: 16px 16px 8px rgba(0, 0, 0, 0.4); /* Add text-shadow property */
+  }
+}

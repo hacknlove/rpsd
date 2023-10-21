@@ -1,32 +1,12 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import { NewMatch } from "@/components/newMatch/newMatch";
 ---
 
 <Layout title="Rock, Paper, Scissors, Duck">
-	<script src="@/js/createMatch.js"></script>
 	<main>
 		<h1>Create a new match</h1>
-		<form method="dialog">
-
-			<label>Name of the room:</label>
-			<input required type="text" placeholder="Name" name="name" />
-
-			
-			<label>Kind of game:</label>
-			<select name="game">
-				<option value="rpsd">Rock, Paper, Scissors, Duck</option>
-				<option value="ss">Simon says</option>
-			</select>
-			
-			<label>starts at:</label>
-			<input type="datetime-local" name="startsAt" />
-
-			<label>Admin Password</label>
-			<input required type="password" placeholder="Password" name="password" required />
-
-			<label>Create:</label>
-			<button>Create</button>
-		</form>
+		<NewMatch client:idle />
 	</main>
 </Layout>
 
@@ -39,14 +19,4 @@ import Layout from "../layouts/Layout.astro";
 		height: 100vh;
 	}
 
-	form {
-		display: flex;
-		flex-direction: column;
-		text-align: center;
-	}
-
-	form:invalid>button {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
 </style>
