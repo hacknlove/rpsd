@@ -33,6 +33,7 @@ function clientSide() {
 
   websocketTemp.addEventListener("message", (event) => {
     const data = JSON.parse(event.data);
+    console.debug(data);
     websocket.lastEventData = data;
   });
 }

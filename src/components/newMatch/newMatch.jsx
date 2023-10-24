@@ -4,6 +4,8 @@ import { fetchRest } from "@/js/fetchRest";
 
 function dateFromNowToString(ms = 0) {
   const now = new Date(Date.now() + ms);
+  now.setMilliseconds(0);
+  now.setSeconds(0);
   const timezoneOffset = now.getTimezoneOffset() * 60000; // Convert minutes to milliseconds
   const localDateTimeWithOffset = new Date(now - timezoneOffset);
   const localDateTimeISOString = localDateTimeWithOffset
@@ -13,15 +15,13 @@ function dateFromNowToString(ms = 0) {
 }
 
 function initStartsAt(elemento) {
-  elemento.setAttribute("min", dateFromNowToString());
+  elemento.setAttribute("min", dateFromNowToString(60 * 1000));
   elemento.setAttribute("max", dateFromNowToString(7 * 24 * 60 * 60 * 1000));
   elemento.setAttribute("value", dateFromNowToString(60 * 60 * 1000));
 }
 
 function localDateToIsoDate(dateString) {
-  debugger;
   const date = new Date(dateString);
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
   const localDateTimeISOString = date.toISOString().replace(/\..*?$/, "");
   return localDateTimeISOString + "Z";
 }

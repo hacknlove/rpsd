@@ -91,6 +91,7 @@ export class Room {
 	}
 
 	async alarm() {
+		console.log('Alarm!');
 		const webSockets = this.state.getWebSockets();
 		if (webSockets.length === 0) {
 			this.storage.deleteAll();
@@ -189,6 +190,8 @@ export class Room {
 			password,
 			startsAt: startsAtms,
 		});
+
+		console.debug('set alarm', startsAtms, new Date(startsAt).toISOString());
 
 		this.storage.setAlarm(startsAtms);
 
