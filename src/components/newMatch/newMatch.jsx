@@ -14,7 +14,7 @@ function dateFromNowToString(ms = 0) {
   return localDateTimeISOString;
 }
 
-function initStartsAt(elemento) {
+function initnextAt(elemento) {
   elemento.setAttribute("min", dateFromNowToString(60 * 1000));
   elemento.setAttribute("max", dateFromNowToString(7 * 24 * 60 * 60 * 1000));
   elemento.setAttribute("value", dateFromNowToString(60 * 60 * 1000));
@@ -37,7 +37,7 @@ export function NewMatch() {
 
     const JSON = Object.fromEntries(new FormData(form));
 
-    JSON.startsAt = localDateToIsoDate(JSON.startsAt);
+    JSON.nextAt = localDateToIsoDate(JSON.nextAt);
 
     const response = await fetchRest("newMatch", JSON);
 
@@ -73,7 +73,7 @@ export function NewMatch() {
       </select>
 
       <label>starts at:</label>
-      <input type="datetime-local" name="startsAt" use:initStartsAt />
+      <input type="datetime-local" name="nextAt" use:initnextAt />
 
       <label>Admin Password</label>
       <input required type="password" placeholder="Password" name="password" />

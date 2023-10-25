@@ -4,7 +4,7 @@ import { signData, signSearchParams } from "lib/sign";
 import { sendRestJSON } from "lib/sendRestJSON";
 
 const schema = z.object({
-  startsAt: z.string().datetime(),
+  nextAt: z.string().datetime(),
   password: z.string(),
 });
 

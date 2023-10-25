@@ -3,14 +3,15 @@ import { createSignal, onCleanup, onMount } from "solid-js";
 import "./Header.scss";
 
 export function Header() {
-  const [timeToStart, setTimeToStart] = createSignal(0);
+  const [timeToNext, setTimeToNext] = createSignal(0);
   const [numberOfPlayers, setNumberOfPlayers] = createSignal(0);
 
   websocket.addEventListener("message", (event) => {
     const data = JSON.parse(event.data);
+    console.debug(data);
 
-    if (data.startsAt) {
-      setTimeToStart(data.startsAt - Date.now());
+    if (data.nextAt) {
+      setTimeToNext(data.nextAt - Date.now());
     }
 
     if (data.totalPlayers) {
@@ -20,13 +21,13 @@ export function Header() {
 
   onMount(() => {
     if (websocket.lastEventData) {
-      setTimeToStart(websocket.lastEventData.startsAt - Date.now());
+      setTimeToNext(websocket.lastEventData.nextAt - Date.now());
       setNumberOfPlayers(websocket.lastEventData.totalPlayers);
     }
   });
 
-  function updateTimeToStart() {
-    setTimeToStart(websocket.lastEventData.startsAt - Date.now());
+  function updateTimeToNext() {
+    setTimeToNext(websocket.lastEventData.nextAt - Date.now());
   }
 
   let nextUpdateTimeout;
@@ -34,18 +35,20 @@ export function Header() {
     const raw = miliseconds / interval;
 
     if (raw >= 1) {
-      const show = Math.floor(raw);
+      let show = Math.floor(raw);
       const milisecondsToNext = miliseconds - show * interval;
 
       clearTimeout(nextUpdateTimeout);
-      nextUpdateTimeout = setTimeout(updateTimeToStart, milisecondsToNext);
+      nextUpdateTimeout = setTimeout(updateTimeToNext, milisecondsToNext + 1);
 
-      return `${show} ${show > 1 ? plural : singular}`;
+      return `${interval > 1000 ? "Over " : ""}${show} ${
+        show > 1 ? plural : singular
+      }`;
     }
   }
 
-  function formatedTimeToStart() {
-    const miliseconds = timeToStart();
+  function formatedTimeToNext() {
+    const miliseconds = timeToNext();
 
     return (
       processInterval(miliseconds, 1000 * 60 * 60 * 24, "day", "days") ||
@@ -57,9 +60,9 @@ export function Header() {
 
   return (
     <header id="Header">
-      <div class="stats" id="timeToStart">
+      <div class="stats" id="timeToNext">
         <span>Time to start:</span>
-        <span>{formatedTimeToStart()} </span>
+        <span>{formatedTimeToNext()} </span>
       </div>
       <div class="stats" id="numberOfPlayers">
         <span>Number of players:</span>

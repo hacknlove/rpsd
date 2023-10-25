@@ -38,7 +38,7 @@ export class Room {
 			type: 'update',
 			totalPlayers,
 			status: await this.storage.get('status'),
-			startsAt: await this.storage.get('startsAt'),
+			nextAt: await this.storage.get('nextAt'),
 		});
 
 		everyone.forEach((ws) => {
@@ -91,28 +91,32 @@ export class Room {
 	}
 
 	async alarm() {
-		console.log('Alarm!');
-		const webSockets = this.state.getWebSockets();
-		if (webSockets.length === 0) {
-			this.storage.deleteAll();
-			return;
+		try {
+			console.log('Alarm!');
+			const webSockets = this.state.getWebSockets();
+			if (webSockets.length === 0) {
+				this.storage.deleteAll();
+				return;
+			}
+
+			const status = await this.storage.get('status');
+
+			switch (status) {
+				case 'waiting':
+					this.storage.put({
+						status: 'playing',
+						nextRound: Date.now() + 1000 * 10,
+					});
+					break;
+				case 'playing':
+					//
+					break;
+			}
+
+			this.update();
+		} catch (error) {
+			console.error(error);
 		}
-
-		const status = await this.storage.get('status');
-
-		switch (status) {
-			case 'waiting':
-				this.storage.put({
-					status: 'playing',
-					nextRound: Date.now() + 1000 * 10,
-				});
-				break;
-			case 'playing':
-				//
-				break;
-		}
-
-		this.update();
 	}
 
 	async webSocketClose(ws) {
@@ -162,11 +166,11 @@ export class Room {
 		});
 	}
 	async newMatch(request) {
-		const data = await this.storage.get(['status', 'startsAt']);
+		const data = await this.storage.get(['status', 'nextAt']);
 
-		console.log(data.get('startsAt'), Date.now());
+		console.log(data.get('nextAt'), Date.now());
 
-		if (data.get('startsAt') < Date.now() && !this.state.getWebSockets('players').length) {
+		if (data.get('nextAt') < Date.now() && !this.state.getWebSockets('players').length) {
 			data.set('status', 'ended');
 		}
 
@@ -179,21 +183,21 @@ export class Room {
 				await this.storage.deleteAll();
 		}
 
-		const { name, game, startsAt, password } = await request.json();
+		const { name, game, nextAt, password } = await request.json();
 
-		const startsAtms = new Date(startsAt).getTime();
+		const nextAtms = new Date(nextAt).getTime();
 
 		await this.storage.put({
 			name,
 			game,
 			status: 'waiting',
 			password,
-			startsAt: startsAtms,
+			nextAt: nextAtms,
 		});
 
-		console.debug('set alarm', startsAtms, new Date(startsAt).toISOString());
+		console.debug('set alarm', nextAtms, new Date(nextAt).toISOString());
 
-		this.storage.setAlarm(startsAtms);
+		this.storage.setAlarm(nextAtms);
 
 		return sendRestJSON({
 			id: this.id,
@@ -243,8 +247,8 @@ export class Room {
 	}
 
 	async joinOpen(request) {
-		const startsAt = await this.storage.get('startsAt');
-		if (startsAt > Date.now()) {
+		const nextAt = await this.storage.get('nextAt');
+		if (nextAt > Date.now()) {
 			return sendRestJSON({
 				error: 'The Game has started',
 			});

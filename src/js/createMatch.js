@@ -4,16 +4,16 @@ function dateFromNowToString(ms = 0) {
   return new Date(Date.now() + ms).toISOString().replace(/\..*?$/, "");
 }
 
-function initStartsAt() {
-  const startsAt = document.querySelector('input[name="startsAt"]');
+function initnextAt() {
+  const nextAt = document.querySelector('input[name="nextAt"]');
 
-  startsAt.setAttribute("min", dateFromNowToString());
-  startsAt.setAttribute("max", dateFromNowToString(7 * 24 * 60 * 60 * 1000));
-  startsAt.setAttribute("value", dateFromNowToString(60 * 60 * 1000));
+  nextAt.setAttribute("min", dateFromNowToString());
+  nextAt.setAttribute("max", dateFromNowToString(7 * 24 * 60 * 60 * 1000));
+  nextAt.setAttribute("value", dateFromNowToString(60 * 60 * 1000));
 }
 
 function ready() {
-  initStartsAt();
+  initnextAt();
 
   const form = document.querySelector("form");
   const button = form.querySelector("button");
@@ -31,8 +31,8 @@ function ready() {
 
     const JSON = Object.fromEntries(new FormData(form));
 
-    if (!JSON.startsAt.endsWith("Z")) {
-      JSON.startsAt = JSON.startsAt + "Z"; // fix for zod validator
+    if (!JSON.nextAt.endsWith("Z")) {
+      JSON.nextAt = JSON.nextAt + "Z"; // fix for zod validator
     }
 
     const response = await fetchRest("newMatch", JSON);
