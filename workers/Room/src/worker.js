@@ -92,7 +92,6 @@ export class Room {
 
 	async alarm() {
 		try {
-			console.log('Alarm!');
 			const webSockets = this.state.getWebSockets();
 			if (webSockets.length === 0) {
 				this.storage.deleteAll();
@@ -148,13 +147,6 @@ export class Room {
 
 		const data = await request.json();
 
-		console.log(
-			{
-				password,
-			},
-			data,
-		);
-
 		if (password !== data.password) {
 			return sendRestJSON({
 				error,
@@ -166,12 +158,11 @@ export class Room {
 		});
 	}
 	async newMatch(request) {
-		const data = await this.storage.get(['status', 'nextAt']);
+		const data = await this.storage.get(['status', 'nextAt', 'startsAt']);
 
-		console.log(data.get('nextAt'), Date.now());
 
-		if (data.get('nextAt') < Date.now() && !this.state.getWebSockets('players').length) {
-			data.set('status', 'ended');
+		if (data.get('startsAt') < Date.now() && !this.state.getWebSockets('players').length) {
+			await data.set('status', 'ended');
 		}
 
 		switch (data.get('status')) {
@@ -193,9 +184,8 @@ export class Room {
 			status: 'waiting',
 			password,
 			nextAt: nextAtms,
+			startsAt: nextAtms,
 		});
-
-		console.debug('set alarm', nextAtms, new Date(nextAt).toISOString());
 
 		this.storage.setAlarm(nextAtms);
 
