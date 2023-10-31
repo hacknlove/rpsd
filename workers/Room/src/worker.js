@@ -23,6 +23,9 @@ export class Room {
 		this.id = state.id;
 
 		this.controlers = new Set();
+
+		// Alarm is buggy, we are disabling it and relying on the admin client
+		this.storage.setAlarm = () => {};
 	}
 
 	async update({ closing = false } = {}) {
@@ -33,12 +36,13 @@ export class Room {
 		}
 
 		const everyone = this.state.getWebSockets();
+		const state = await this.storage.get(['status', 'nextAt']);
 
 		const data = JSON.stringify({
 			type: 'update',
 			totalPlayers,
-			status: await this.storage.get('status'),
-			nextAt: await this.storage.get('nextAt'),
+			status: state.get('status'),
+			nextAt: state.get('nextAt'),
 		});
 
 		everyone.forEach((ws) => {
@@ -90,10 +94,21 @@ export class Room {
 		return new Response(null, { status: 101, webSocket: clientWebSocket });
 	}
 
+	async clientSideAlarm(wsData) {
+		const data = await this.storage.get(['status', 'nextAt']);
+
+		if (wsData.status !== data.get('status') || wsData.nextAt !== data.get('nextAt')) {
+			return;
+		}
+
+		return this.alarm();
+	}
+
 	async alarm() {
 		try {
 			const webSockets = this.state.getWebSockets();
 			if (webSockets.length === 0) {
+				console.info('No players');
 				this.storage.deleteAll();
 				return;
 			}
@@ -102,17 +117,24 @@ export class Room {
 
 			switch (status) {
 				case 'waiting':
-					this.storage.put({
+				case 'playing': {
+					console.info('Waiting');
+					const nextAt = Date.now() + 1000 * 10;
+					await this.storage.put({
 						status: 'playing',
-						nextRound: Date.now() + 1000 * 10,
+						nextAt,
 					});
+					this.update();
+					setTimeout(async () => {
+						await this.storage.setAlarm(nextAt);
+					}, 1);
 					break;
-				case 'playing':
-					//
-					break;
+				}
+				default: {
+					console.log({ status });
+					return;
+				}
 			}
-
-			this.update();
 		} catch (error) {
 			console.error(error);
 		}
@@ -132,10 +154,16 @@ export class Room {
 	async webSocketMessage(ws, msg) {
 		const data = JSON.parse(msg);
 
-		console.debug(ws.tags);
+		const wsData = ws.deserializeAttachment();
 
 		switch (data.type) {
 			case 'play':
+				break;
+			case 'clientSideAlarm':
+				if (!wsData.isAdmin) {
+					return;
+				}
+				await this.clientSideAlarm(data);
 				break;
 			default:
 				console.debug(data);
@@ -159,7 +187,6 @@ export class Room {
 	}
 	async newMatch(request) {
 		const data = await this.storage.get(['status', 'nextAt', 'startsAt']);
-
 
 		if (data.get('startsAt') < Date.now() && !this.state.getWebSockets('players').length) {
 			await data.set('status', 'ended');
@@ -187,7 +214,7 @@ export class Room {
 			startsAt: nextAtms,
 		});
 
-		this.storage.setAlarm(nextAtms);
+		await this.storage.setAlarm(nextAtms);
 
 		return sendRestJSON({
 			id: this.id,
