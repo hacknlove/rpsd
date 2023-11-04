@@ -15,6 +15,14 @@ function sendRestJSON(data) {
 	});
 }
 
+const options = new Set(['rock', 'paper', 'scissors', 'duck']);
+
+const gameMap = {
+	rock: 'scissors',
+	paper: 'rock',
+	scissors: 'paper',
+};
+
 export class Room {
 	constructor(state, env) {
 		this.state = state;
@@ -22,36 +30,105 @@ export class Room {
 		this.env = env;
 		this.id = state.id;
 
-		this.controlers = new Set();
-
 		// Alarm is buggy, we are disabling it and relying on the admin client
 		this.storage.setAlarm = () => {};
 	}
 
-	async update({ closing = false } = {}) {
-		let totalPlayers = this.state.getWebSockets('players').length;
+	async update({ closing = false, count = false, loser } = {}) {
+		let totalPlayers = this.state.getWebSockets('player').length;
 
 		if (closing) {
 			totalPlayers -= 1;
 		}
 
-		const everyone = this.state.getWebSockets();
 		const state = await this.storage.get(['status', 'nextAt']);
 
-		const data = JSON.stringify({
+		const data = {
 			type: 'update',
 			totalPlayers,
 			status: state.get('status'),
 			nextAt: state.get('nextAt'),
-		});
+		};
+
+		if (count) {
+			count = await this.storage.get(['rock', 'paper', 'scissors', 'duck']);
+			data.rock = count.get('rock');
+			data.paper = count.get('paper');
+			data.scissors = count.get('scissors');
+			data.duck = count.get('duck');
+		}
+
+		if (loser) {
+			data.loser = loser;
+		}
+
+		const everyone = this.state.getWebSockets();
+
+		const json = JSON.stringify(data);
 
 		everyone.forEach((ws) => {
-			ws.send(data);
+			ws.send(json);
 		});
 	}
 
+	// Connection
+	async wsAdmin(password) {
+		if (password !== (await this.storage.get('password'))) {
+			return sendRestJSON({
+				error: 'Wrong password',
+			});
+		}
+		return this.wsConnect(
+			{
+				isAdmin: true,
+			},
+			[`password_${password}`, 'admin'],
+		);
+	}
+
+	async wsPlayer(playerId) {
+		console.log(1);
+		const key = `option_${playerId}`;
+
+		const currentOption = await this.storage.get(key);
+		console.log(2);
+		const startsAt = await this.storage.get('startsAt');
+		if (startsAt < Date.now() && !currentOption) {
+			return sendRestJSON({
+				error: 'The Game has started. No new players allowed',
+			});
+		}
+
+		console.log(3);
+
+		if (!currentOption) {
+			await this.storage.put({
+				[key]: 'duck',
+				duck: (await this.storage.get('duck')) + 1,
+			});
+		}
+
+		return this.wsConnect(
+			{
+				isPlayer: true,
+				playerId,
+			},
+			[playerId, 'player'],
+		);
+	}
+
+	async wsConnect(attachment, tags) {
+		const { 0: clientWebSocket, 1: serverWebSocket } = new WebSocketPair();
+
+		serverWebSocket.serializeAttachment(attachment);
+		this.state.acceptWebSocket(serverWebSocket, tags);
+
+		this.update();
+
+		return new Response(null, { status: 101, webSocket: clientWebSocket });
+	}
+
 	async ws(request) {
-		const tags = [];
 		const url = new URL(request.url);
 
 		if (url.searchParams.get('id') !== this.id) {
@@ -59,39 +136,20 @@ export class Room {
 				error: 'Wrong id',
 			});
 		}
+
 		const password = url.searchParams.get('password');
 
-		const playerId = url.searchParams.get('playerId');
-
 		if (password) {
-			tags.push('admin');
-			tags.push(password);
-			if (password !== (await this.storage.get('password'))) {
-				return sendRestJSON({
-					error: 'Wrong password',
-				});
-			}
-		} else if (playerId) {
-			tags.push('players');
-			tags.push(playerId);
-		} else {
-			return sendRestJSON({
-				error: 'Missing password or playerId',
-			});
+			return this.wsAdmin(password);
 		}
 
-		const { 0: clientWebSocket, 1: serverWebSocket } = new WebSocketPair();
-
-		serverWebSocket.serializeAttachment({
-			playerId,
-			isPlayer: Boolean(playerId),
-			isAdmin: Boolean(password),
+		const playerId = url.searchParams.get('playerId');
+		if (playerId) {
+			return this.wsPlayer(playerId);
+		}
+		return sendRestJSON({
+			error: 'Missing password or playerId',
 		});
-		this.state.acceptWebSocket(serverWebSocket, tags);
-
-		this.update();
-
-		return new Response(null, { status: 101, webSocket: clientWebSocket });
 	}
 
 	async clientSideAlarm(wsData) {
@@ -102,6 +160,64 @@ export class Room {
 		}
 
 		return this.alarm();
+	}
+
+	async alarmStartGame() {
+		const nextAt = Date.now() + 1000 * 60;
+		await this.storage.put({
+			status: 'playing',
+			nextAt,
+		});
+		this.update();
+	}
+
+	async alarmPlay() {
+		const nextAt = Date.now() + 1000 * 60;
+		await this.storage.put({
+			status: 'playing',
+			nextAt,
+		});
+
+		const optionsCount = await this.storage.get(['rock', 'paper', 'scissors']);
+
+		const ducks = await this.storage.get('duck');
+
+		const optionsArray = Object.entries(optionsCount);
+		optionsArray.sort((a, b) => b[1] - a[1]);
+
+		if (ducks > optionsArray[0][1]) {
+			await this.setLoser('duck');
+			return this.update({ count: true, loser: 'duck' });
+		}
+		if (optionsArray[0][1] === optionsArray[1][1] && optionsArray[1][1] === optionsArray[2][1]) {
+			return this.update({ count: true, loser: 'draw' });
+		}
+		if (optionsArray[1][1] !== optionsArray[2][1]) {
+			await this.setLoser(optionsArray[2][0]);
+			return this.update({ count: true, loser: optionsArray[2][0] });
+		}
+
+		if (gameMap[optionsArray[1][0]] === optionsArray[2][0]) {
+			await this.setLoser(optionsArray[1][0]);
+			return this.update({ count: true, loser: optionsArray[1][0] });
+		}
+
+		await this.setLoser(optionsArray[2][0]);
+		return this.update({ count: true, loser: optionsArray[2][0] });
+	}
+
+	async setLoser(loser) {
+		const allPlayers = this.state.getWebSockets('player');
+
+		for (const player of allPlayers) {
+			const attachment = player.deserializeAttachment();
+
+			if (attachment.option === loser) {
+				attachment.loser = true;
+				player.serializeAttachment(attachment);
+				player.send(JSON.stringify({ type: 'loser' }));
+			}
+		}
 	}
 
 	async alarm() {
@@ -117,9 +233,11 @@ export class Room {
 
 			switch (status) {
 				case 'waiting':
+					return this.alarmStartGame();
+
 				case 'playing': {
 					console.info('Waiting');
-					const nextAt = Date.now() + 1000 * 10;
+					const nextAt = Date.now() + 1000 * 60;
 					await this.storage.put({
 						status: 'playing',
 						nextAt,
@@ -141,14 +259,70 @@ export class Room {
 	}
 
 	async webSocketClose(ws) {
+		const attachment = ws.deserializeAttachment();
+
+		if (attachment.isAdmin) {
+			return;
+		}
+
+		const playerId = attachment.playerId;
+
+		const option = await this.storage.get(`option_${playerId}`);
+
+		if (!option) {
+			return this.update({ closing: true });
+		}
+
+		this.state.blockConcurrencyWhile(async () => {
+			await this.storage.delete(`option_${playerId}`);
+			await this.storage.put({
+				[option]: (await this.storage.get(option)) - 1,
+			});
+		});
+
 		this.update({ closing: true });
-		ws;
 	}
 
 	async webSocketError(ws, error) {
-		this.update({ closing: true });
-		ws;
 		console.error(error);
+		return this.webSocketClose(ws);
+	}
+
+	async play(playerId, option) {
+		if (!options.has(option)) {
+			return;
+		}
+		const key = `option_${playerId}`;
+		const currentOption = await this.storage.get(key);
+
+		if (!currentOption || option === currentOption) {
+			return;
+		}
+
+		this.state.blockConcurrencyWhile(async () => {
+			this.storage.put(key, option);
+			await new Promise.all([
+				async () => option !== 'duck' && this.storage.put(option, (await this.storage.get(option)) + 1),
+				async () => currentOption !== 'duck' && this.storage.put(currentOption, (await this.storage.get(currentOption)) - 1),
+			]);
+		});
+
+		const websockets = this.state.getWebSockets(playerId);
+
+		websockets.forEach((ws) => {
+			const attachment = ws.deserializeAttachment();
+
+			attachment.option = option;
+
+			ws.serializeAttachment(attachment);
+
+			ws.send(
+				JSON.stringify({
+					type: 'play',
+					option,
+				}),
+			);
+		});
 	}
 
 	async webSocketMessage(ws, msg) {
@@ -158,6 +332,10 @@ export class Room {
 
 		switch (data.type) {
 			case 'play':
+				if (!wsData.isPlayer) {
+					return;
+				}
+				this.play(wsData.playerId, data.option);
 				break;
 			case 'clientSideAlarm':
 				if (!wsData.isAdmin) {
@@ -188,7 +366,7 @@ export class Room {
 	async newMatch(request) {
 		const data = await this.storage.get(['status', 'nextAt', 'startsAt']);
 
-		if (data.get('startsAt') < Date.now() && !this.state.getWebSockets('players').length) {
+		if (data.get('startsAt') < Date.now() && !this.state.getWebSockets('player').length) {
 			await data.set('status', 'ended');
 		}
 
@@ -279,9 +457,12 @@ export class Room {
 			});
 		}
 
-		const playerId = `player_${await crypto.randomUUID()}`;
+		const playerId = await crypto.randomUUID();
 
-		this.storage.put(playerId, 'playing');
+		this.storage.put(`player_${playerId}`, {
+			status: 'playing',
+			option: 'duck',
+		});
 
 		const search = new URLSearchParams({
 			playerId,
@@ -315,7 +496,7 @@ export class Room {
 				case '/isAdmin': {
 					return await this.isAdmin(request);
 				}
-				case '/joinOpen': {
+				case '?/joinOpen': {
 					return await this.joinOpen(request);
 				}
 				default:
