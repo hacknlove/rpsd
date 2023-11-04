@@ -1,0 +1,54 @@
+#play-rpsd {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  grid-template-areas: "rock paper" "scissors duck";
+  align-items: center;
+
+  justify-items: center;
+  height: 100vh;
+
+  button {
+    font-size: 2rem;
+    padding: 1rem;
+    border: 3px solid #0002;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    box-shadow:
+      5px 5px 50px 10px #fffa,
+      inset 1px 1px 5px 3px #0002;
+  }
+
+  button:hover {
+    transform: scale(1.1);
+  }
+
+  #rock {
+    grid-area: rock;
+    background-color: #f94144;
+    color: #fff;
+  }
+
+  #paper {
+    grid-area: paper;
+    background-color: #f3722c;
+    color: #fff;
+  }
+
+  #scissors {
+    grid-area: scissors;
+    background-color: #f8961e;
+    color: #fff;
+  }
+
+  #duck {
+    grid-area: duck;
+    background-color: #f9c74f;
+    color: #fff;
+  }
+
+  .emoji {
+    pointer-events: none;
+  }
+}
