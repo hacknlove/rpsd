@@ -1,7 +1,4 @@
 function update(data) {
-  console.debug("update");
-  console.debug(data);
-
   if (!initialized) {
     console.debug(data);
     return;
@@ -29,7 +26,6 @@ import { websocket } from "./connectWS";
 
 function start() {
   initializeGame();
-  initializeCountDown();
 }
 
 websocket.addEventListener("open", () => {
@@ -76,24 +72,6 @@ function initializeGame() {
         target.classList.add('selected');
     })
     */
-}
-
-function initializeCountDown() {
-  const h1 = document.currentScript.previousElementSibling;
-  const countDown = document.currentScript.parentElement;
-
-  let count = 9;
-  countDown.classList.add("started");
-  const interval = setInterval(() => {
-    count--;
-    if (count === -1) {
-      clearInterval(interval);
-      countDown.dispatchEvent(new CustomEvent("countDownEnd"));
-      countDown.remove();
-      return;
-    }
-    h1.innerHTML = count;
-  }, 1000);
 }
 
 document.addEventListener("DOMContentLoaded", ready);
