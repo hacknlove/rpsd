@@ -1,4 +1,8 @@
 #Header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
   backdrop-filter: invert(1) brightness(50%) saturate(1750%);
   padding: 8px 20px;
@@ -12,4 +16,5 @@
   font-weight: bolder;
   font-family: monospace;
   justify-content: space-around;
+  z-index: 10000;
 }
