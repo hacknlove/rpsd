@@ -1,5 +1,6 @@
 import { verifySearchParams } from 'lib/sign';
 import { signSearchParams } from './sign';
+import Game from '@/pages/game.astro';
 
 export default {
 	async fetch() {
@@ -23,24 +24,12 @@ const gameMap = {
 	scissors: 'paper',
 };
 
-export class Room {
+export class Room extends Game{
 	constructor(state, env) {
-		this.state = state;
-		this.storage = state.storage;
-		this.env = env;
-		this.id = state.id;
-
-		// Alarm is buggy, we are disabling it and relying on the admin client
-		this.storage.setAlarm = () => {};
+		super(state, env);
 	}
 
-	async update({ closing = false, count = false, loser } = {}) {
-		let totalPlayers = this.state.getWebSockets('player').length;
-
-		if (closing) {
-			totalPlayers -= 1;
-		}
-
+	async update_({ count = false, loser } = {}) {
 		const state = await this.storage.get(['status', 'nextAt']);
 
 		const data = {
@@ -62,33 +51,21 @@ export class Room {
 			data.loser = loser;
 		}
 
-		const everyone = this.state.getWebSockets();
-
-		const json = JSON.stringify(data);
-
-		everyone.forEach((ws) => {
-			ws.send(json);
-		});
+		return this.update(data);
 	}
 
 	// Connection
-	async wsAdmin(password) {
-		if (password !== (await this.storage.get('password'))) {
-			return sendRestJSON({
-				error: 'Wrong password',
-			});
+
+	async newPlayer(playerId) {
+		return {
+			
 		}
-		return this.wsConnect(
-			{
-				isAdmin: true,
-			},
-			[`password_${password}`, 'admin'],
-		);
 	}
 
 	async wsPlayer(playerId) {
-		console.log(1);
-		const key = `option_${playerId}`;
+		super.wsPlayer(playerId, async () => {
+
+		});
 
 		const currentOption = await this.storage.get(key);
 		console.log(2);
@@ -115,17 +92,6 @@ export class Room {
 			},
 			[playerId, 'player'],
 		);
-	}
-
-	async wsConnect(attachment, tags) {
-		const { 0: clientWebSocket, 1: serverWebSocket } = new WebSocketPair();
-
-		serverWebSocket.serializeAttachment(attachment);
-		this.state.acceptWebSocket(serverWebSocket, tags);
-
-		this.update();
-
-		return new Response(null, { status: 101, webSocket: clientWebSocket });
 	}
 
 	async ws(request) {
@@ -163,11 +129,8 @@ export class Room {
 	}
 
 	async alarmStartGame() {
-		const nextAt = Date.now() + 1000 * 60;
-		await this.storage.put({
-			status: 'playing',
-			nextAt,
-		});
+		this.state = 'playing';
+		this.nextAt = Date.now() + 1000 * 60;
 		this.update();
 	}
 
