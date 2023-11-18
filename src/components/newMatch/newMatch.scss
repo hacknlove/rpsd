@@ -1,40 +1,50 @@
 form.NewMatch {
   display: flex;
   flex-direction: column;
-  text-align: center;
-}
+  backdrop-filter: grayscale(0.4) brightness(1);
+  padding: 30px;
+  border: 1px solid #00f4;
+  border-radius: 10px;
+  box-shadow: 2px 2px 3px 3px #99f3;
 
-form.NewMatch:invalid > button {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-form.NewMatch.loading {
-  pointer-events: none;
-  position: relative;
-  overflow: hidden;
-  &::before {
-    content: "";
-    position: fixed;
-    height: 100%;
-    width: 100%;
-    top: 0;
-    left: 0;
-    backdrop-filter: blur(2px);
+  &:invalid > button {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
-  &::after {
-    content: "⏳";
-    position: absolute;
-    height: 100%;
-    width: 100%;
-    top: 0;
-    left: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 100px;
-    animation: spin 5s linear infinite; /* Add animation property */
-    text-shadow: 6px 6px 4px rgba(0, 0, 0, 0.4); /* Add text-shadow property */
+
+  &.loading {
+    pointer-events: none;
+    position: relative;
+    overflow: hidden;
+    &::before {
+      content: "";
+      position: fixed;
+      height: 100%;
+      width: 100%;
+      top: 0;
+      left: 0;
+      backdrop-filter: blur(2px);
+    }
+    &::after {
+      content: "⏳";
+      position: absolute;
+      height: 100%;
+      width: 100%;
+      top: 0;
+      left: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 100px;
+      animation: spin 5s linear infinite; /* Add animation property */
+      text-shadow: 6px 6px 4px rgba(0, 0, 0, 0.4); /* Add text-shadow property */
+      filter: blur(2px);
+      opacity: 0.5;
+    }
+  }
+
+  h2 {
+    margin: 0;
   }
 }
 

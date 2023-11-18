@@ -42,7 +42,7 @@ export async function onRequest(context) {
   return new Response(null, {
     status: 302,
     headers: {
-      Location: `/play/${url.searchParams.get("game")}${url.search}`,
+      Location: `/play${url.search}`,
     },
   });
 }

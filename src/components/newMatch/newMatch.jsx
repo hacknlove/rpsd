@@ -48,7 +48,7 @@ export function NewMatch() {
       });
     }
 
-    const url = new URL(`/control/${form.game.value}`, location);
+    const url = new URL("/control", location);
 
     url.search = response.search;
 
@@ -63,14 +63,10 @@ export function NewMatch() {
       method="dialog"
       onSubmit={onSubmit}
     >
+      <h2>Create a new Match</h2>
+
       <label>Name of the room:</label>
       <input required type="text" placeholder="Name" name="name" />
-
-      <label>Kind of game:</label>
-      <select name="game">
-        <option value="rpsd">Rock, Paper, Scissors, Duck</option>
-        <option value="ss">Simon says</option>
-      </select>
 
       <label>starts at:</label>
       <input type="datetime-local" name="nextAt" use:initnextAt />
@@ -78,7 +74,6 @@ export function NewMatch() {
       <label>Admin Password</label>
       <input required type="password" placeholder="Password" name="password" />
 
-      <label>Create:</label>
       <button>Create</button>
     </form>
   );

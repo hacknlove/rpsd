@@ -62,7 +62,7 @@ function ready() {
       });
     }
 
-    const url = new URL(`/control/${form.game.value}`, location);
+    const url = new URL("/control", location);
 
     url.search = response.search;
 

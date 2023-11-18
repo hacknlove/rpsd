@@ -1,20 +1,10 @@
-import { verifySearchParams } from 'lib/sign';
-import { signSearchParams } from './sign';
-import Game from '@/pages/game.astro';
+import { Game } from './base';
 
 export default {
 	async fetch() {
 		return new Response(null, { status: 404 });
 	},
 };
-
-function sendRestJSON(data) {
-	return new Response(JSON.stringify(data), {
-		headers: {
-			'content-type': 'application/json',
-		},
-	});
-}
 
 const options = new Set(['rock', 'paper', 'scissors', 'duck']);
 
@@ -24,7 +14,7 @@ const gameMap = {
 	scissors: 'paper',
 };
 
-export class Room extends Game{
+export class Room extends Game {
 	constructor(state, env) {
 		super(state, env);
 	}
@@ -34,7 +24,7 @@ export class Room extends Game{
 
 		const data = {
 			type: 'update',
-			totalPlayers,
+			totalPlayers: this.playerCount,
 			status: state.get('status'),
 			nextAt: state.get('nextAt'),
 		};
@@ -58,29 +48,25 @@ export class Room extends Game{
 
 	async newPlayer(playerId) {
 		return {
-			
-		}
+			playerId,
+		};
 	}
 
 	async wsPlayer(playerId) {
-		super.wsPlayer(playerId, async () => {
+		super.wsPlayer(playerId, async () => {});
 
-		});
-
-		const currentOption = await this.storage.get(key);
+		const currentOption = await this.storage.get(playerId);
 		console.log(2);
 		const startsAt = await this.storage.get('startsAt');
 		if (startsAt < Date.now() && !currentOption) {
-			return sendRestJSON({
+			return this.sendRestJSON({
 				error: 'The Game has started. No new players allowed',
 			});
 		}
 
-		console.log(3);
-
 		if (!currentOption) {
 			await this.storage.put({
-				[key]: 'duck',
+				[playerId]: 'duck',
 				duck: (await this.storage.get('duck')) + 1,
 			});
 		}
@@ -98,7 +84,7 @@ export class Room extends Game{
 		const url = new URL(request.url);
 
 		if (url.searchParams.get('id') !== this.id) {
-			return sendRestJSON({
+			return this.sendRestJSON({
 				error: 'Wrong id',
 			});
 		}
@@ -113,7 +99,7 @@ export class Room extends Game{
 		if (playerId) {
 			return this.wsPlayer(playerId);
 		}
-		return sendRestJSON({
+		return this.sendRestJSON({
 			error: 'Missing password or playerId',
 		});
 	}
@@ -317,47 +303,12 @@ export class Room extends Game{
 		const data = await request.json();
 
 		if (password !== data.password) {
-			return sendRestJSON({
+			return this.sendRestJSON({
 				error,
 			});
 		}
 
-		return sendRestJSON({
-			id: this.id,
-		});
-	}
-	async newMatch(request) {
-		const data = await this.storage.get(['status', 'nextAt', 'startsAt']);
-
-		if (data.get('startsAt') < Date.now() && !this.state.getWebSockets('player').length) {
-			await data.set('status', 'ended');
-		}
-
-		switch (data.get('status')) {
-			case 'playing':
-			case 'waiting':
-				return this.loginAdmin(request, 'The name is being used and the password is wrong');
-			case 'ended':
-			default:
-				await this.storage.deleteAll();
-		}
-
-		const { name, game, nextAt, password } = await request.json();
-
-		const nextAtms = new Date(nextAt).getTime();
-
-		await this.storage.put({
-			name,
-			game,
-			status: 'waiting',
-			password,
-			nextAt: nextAtms,
-			startsAt: nextAtms,
-		});
-
-		await this.storage.setAlarm(nextAtms);
-
-		return sendRestJSON({
+		return this.sendRestJSON({
 			id: this.id,
 		});
 	}
@@ -370,19 +321,19 @@ export class Room extends Game{
 		const data = await request.json();
 
 		if (password !== data.password || this.id !== data.id) {
-			return sendRestJSON({
+			return this.sendRestJSON({
 				error: 'Wrong password',
 			});
 		}
 
-		return sendRestJSON({});
+		return this.sendRestJSON({});
 	}
 
 	async isAvailable(request) {
 		const data = await request.json();
 
 		if (data.id !== this.id) {
-			return sendRestJSON({
+			return this.sendRestJSON({
 				error: 'Wrong id',
 			});
 		}
@@ -390,89 +341,17 @@ export class Room extends Game{
 		const status = await this.storage.get('status');
 
 		if (status === 'playing') {
-			return sendRestJSON({
+			return this.sendRestJSON({
 				error: 'The Game has already started',
 			});
 		}
 
 		if (status !== 'waiting') {
-			return sendRestJSON({
+			return this.sendRestJSON({
 				error: 'The Game is not available',
 			});
 		}
 
-		return sendRestJSON({});
-	}
-
-	async joinOpen(request) {
-		const nextAt = await this.storage.get('nextAt');
-		if (nextAt > Date.now()) {
-			return sendRestJSON({
-				error: 'The Game has started',
-			});
-		}
-
-		const token = await this.storage.get('token');
-
-		if (await verifySearchParams(token, new URLSearchParams(request.url))) {
-			return sendRestJSON({
-				error: 'Wrong signature',
-			});
-		}
-
-		const playerId = await crypto.randomUUID();
-
-		this.storage.put(`player_${playerId}`, {
-			status: 'playing',
-			option: 'duck',
-		});
-
-		const search = new URLSearchParams({
-			playerId,
-			name: await this.storage.get('name'),
-			game: await this.storage.get('game'),
-		});
-
-		await signSearchParams(token, search);
-
-		return sendRestJSON({
-			search: search.toString(),
-		});
-	}
-
-	/**
-	 * method to handle the request received by the Durable Object.
-	 * https://developers.cloudflare.com/durable-objects/get-started/
-	 *
-	 * @param {Request} request - The request to be processed.
-	 * @return {Promise<Response>} The response generated based on the request.
-	 */
-	async fetch(request) {
-		const url = new URL(request.url);
-
-		try {
-			switch (url.pathname) {
-				case '/newMatch':
-					return await this.newMatch(request);
-				case '/ws':
-					return await this.ws(request);
-				case '/isAdmin': {
-					return await this.isAdmin(request);
-				}
-				case '?/joinOpen': {
-					return await this.joinOpen(request);
-				}
-				default:
-					return sendRestJSON({
-						error: 'Not found',
-					});
-			}
-		} catch (error) {
-			console.error(error);
-			return sendRestJSON({
-				status: 500,
-				error: error.message,
-			});
-		}
+		return this.sendRestJSON({});
 	}
 }

@@ -25,7 +25,6 @@ export async function onRequest(context) {
 
   const searchParams = new URLSearchParams({
     name: data.name,
-    game: data.game,
     id: response.id,
     password: data.password,
   });
