@@ -22,6 +22,7 @@
     "sass": "^1.69.5",
     "sella": "link:../wysise/sella",
     "solid-js": "^1.8.5",
+    "unique-names-generator": "^4.7.1",
     "zod": "^3.22.4"
   },
   "devDependencies": {

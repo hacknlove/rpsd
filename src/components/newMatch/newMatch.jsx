@@ -56,6 +56,12 @@ export function NewMatch() {
     form.nextElementSibling.click();
   }
 
+  onMount(async () => {
+    const name = await fetch("/api/name").then((r) => r.text());
+
+    document.querySelector('input[name="name"]').value = name;
+  });
+
   return (
     <form
       class="NewMatch"
