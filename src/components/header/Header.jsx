@@ -17,8 +17,8 @@ export function Header() {
       setTimeToNext(data.nextAt - Date.now());
     }
 
-    if (data.totalPlayers) {
-      setNumberOfPlayers(data.totalPlayers);
+    if (data.playerCount) {
+      setNumberOfPlayers(data.playerCount);
     }
 
     switch (data.status) {

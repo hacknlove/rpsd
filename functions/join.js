@@ -29,6 +29,8 @@ export async function onRequest(context) {
     schema,
   });
 
+  console.log({ isAvailable });
+
   if (isAvailable.error) {
     return sendRestJSON(isAvailable);
   }
