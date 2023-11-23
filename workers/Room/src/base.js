@@ -1,5 +1,5 @@
 export class Game {
-	constructor(state, env) {
+	constructor(state, env, keys) {
 		this.storage = state.storage;
 		this.state = state;
 		this.env = env;
@@ -9,12 +9,9 @@ export class Game {
 		this.storage.setAlarm = () => {};
 
 		this._playerCount = 0;
-		this._startAt = Number.MAX_SAFE_INTEGER;
-		this._nextAt = Number.MAX_SAFE_INTEGER;
-		this._status = 'none';
 		this.players = new Map();
 
-		this.storage.get(['playerCount', 'startsAt', 'nextAt', 'status', 'players']).then((map) => {
+		this.storage.get(['playerCount', 'players', ...keys]).then((map) => {
 			map.forEach((value, key) => {
 				if (value !== undefined) {
 					this[`_${key}`] = value;
@@ -61,47 +58,41 @@ export class Game {
 			});
 		}
 	}
+
+	async webSocketMessage(ws, msg) {
+		const data = JSON.parse(msg);
+
+		const wsData = ws.deserializeAttachment();
+
+		switch (data.type) {
+			case 'play':
+				if (!wsData.isPlayer) {
+					return;
+				}
+				this.play(wsData.playerId, data);
+				break;
+			case 'nextTurn':
+				if (this.canCallNextTurn({ wsData, data })) {
+					this.nextTurn({ wsData, data });
+				}
+				break;
+
+			default:
+				console.debug(data);
+		}
+	}
+
 	/**
 	 * Create a new match.
 	 *
 	 * @param {Object} request - The request object.
 	 * @returns {Promise} - A promise that resolves to the response object.
 	 */
-	async newMatch(request) {
-		// Check if the match has already started and there are no players
-		if (this.startsAt < Date.now() && this.playerCount === 0) {
-			this.status = 'ended';
-		}
-
-		switch (this.status) {
-			case 'playing':
-			case 'waiting':
-				// If the match is playing or waiting, try login as admin
-				return this.loginAdmin(request, 'The name is being used and the password is wrong');
-			case 'ended':
-			case 'none':
-			default:
-				// If the match is ended or none, delete all data from storage and continue
-				await this.storage.deleteAll();
-		}
-
-		// Get the name, nextAt, and password from the request body
-		const { name, nextAt, password } = await request.json();
-
-		// Convert nextAt to milliseconds
-		const nextAtms = new Date(nextAt).getTime();
-
-		// Put the match data into storage
+	async newMatch({ name, password }) {
 		this.storage.put({
 			name,
 			password,
 		});
-
-		this.status = 'waiting';
-		this.startsAt = nextAtms;
-
-		// Set an alarm for the nextAt time
-		await this.storage.setAlarm(nextAtms);
 
 		// Return the id of the match
 		return this.sendRestJSON({
@@ -173,52 +164,56 @@ export class Game {
 	 * @param {WebSocket} ws - The WebSocket connection to close.
 	 */
 	async webSocketClose(ws) {
-		// Deserialize the attachment from the WebSocket
-		const attachment = ws.deserializeAttachment();
+		try {
+			// Deserialize the attachment from the WebSocket
+			const attachment = ws.deserializeAttachment();
 
-		// If the attachment is not a player, return
-		if (!attachment.isPlayer) {
-			return;
+			// If the attachment is not a player, return
+			if (!attachment.isPlayer) {
+				return;
+			}
+
+			// Get the player ID from the attachment
+			const playerId = attachment.playerId;
+
+			// Get the player object from the player ID
+			const player = this.players.get(playerId);
+
+			// If the player does not exist, return
+			if (!player) {
+				return;
+			}
+
+			// Get all the WebSocket connections for the player
+			const websockets = this.state.getWebSockets(playerId);
+
+			// If there are more than one WebSocket connections, return
+			if (websockets.length > 1) {
+				return;
+			}
+
+			// If the WebSocket connection is not the first in the list, return
+			if (websockets[0] !== ws) {
+				return;
+			}
+
+			// Delete the player from the game
+			this.deletePlayer(player, playerId);
+
+			// Remove the player from the players map
+			this.players.delete(playerId);
+
+			// Save the updated players map in the storage
+			this.storage.put('players', this.players);
+
+			// Decrease the player count
+			this.decPlayerCount();
+
+			// Update the game state
+			this.update();
+		} catch (error) {
+			console.error(error);
 		}
-
-		// Get the player ID from the attachment
-		const playerId = attachment.playerId;
-
-		// Get the player object from the player ID
-		const player = this.players.get(playerId);
-
-		// If the player does not exist, return
-		if (!player) {
-			return;
-		}
-
-		// Get all the WebSocket connections for the player
-		const websockets = this.state.getWebSockets(playerId);
-
-		// If there are more than one WebSocket connections, return
-		if (websockets.length > 1) {
-			return;
-		}
-
-		// If the WebSocket connection is not the first in the list, return
-		if (websockets[0] !== ws) {
-			return;
-		}
-
-		// Delete the player from the game
-		this.deletePlayer(playerId);
-
-		// Remove the player from the players map
-		this.players.delete(playerId);
-
-		// Save the updated players map in the storage
-		this.storage.put('players', this.players);
-
-		// Decrease the player count
-		this.decPlayerCount();
-
-		// Update the game state
-		this.update();
 	}
 
 	//endregion
@@ -262,7 +257,7 @@ export class Game {
 		const existsPlayer = await this.existsPlayer(playerId);
 
 		// If the game has started and the player does not exist, return an error
-		if (this.status !== 'waiting' && !existsPlayer) {
+		if (!existsPlayer && this.canJoin(playerId)) {
 			return this.sendRestJSON({
 				error: 'The Game has started. No new players allowed',
 			});
@@ -305,7 +300,11 @@ export class Game {
 			...data,
 		});
 		everyone.forEach((ws) => {
-			ws.send(json);
+			try {
+				ws.send(json);
+			} catch (e) {
+				console.error(e);
+			}
 		});
 	}
 
@@ -325,39 +324,10 @@ export class Game {
 		console.log('playerCount', this.playerCount);
 	}
 
-	get startsAt() {
-		return this._startsAt;
-	}
-	set startsAt(startsAt) {
-		this._startsAt = startsAt;
-		this._nextAt = startsAt;
-		this.storage.put({
-			startsAt,
-			nextAt: startsAt,
-		});
-	}
-
-	get nextAt() {
-		return this._nextAt;
-	}
-	set nextAt(nextAt) {
-		this._nextAt = nextAt;
-		this.storage.put('nextAt', nextAt);
-	}
-	get status() {
-		return this._status;
-	}
-	set status(status) {
-		this._status = status;
-		this.storage.put('status', status);
-	}
-
 	reset() {
-		this.playerCount = 0;
-		this.status = 'none';
+		this._playerCount = 0;
 		this.players = new Map();
-		this.storage.put('players', this.players());
-		this.startsAt = Number.MAX_SAFE_INTEGER;
+		this.storage.put('players', this.players);
 	}
 
 	async existsPlayer(playerId) {
@@ -388,22 +358,6 @@ export class Game {
 		this.update();
 
 		return new Response(null, { status: 101, webSocket: clientWebSocket });
-	}
-
-	async clientSideAlarm(wsData) {
-		const data = await this.storage.get(['status', 'nextAt']);
-
-		if (wsData.status !== data.get('status') || wsData.nextAt !== data.get('nextAt')) {
-			return;
-		}
-
-		return this.alarm();
-	}
-
-	async alarmStartGame() {
-		this.status = 'playing';
-		this.nextAt = Date.now() + 1000 * 60;
-		this.update();
 	}
 
 	async loginAdmin(request, error) {

@@ -16,42 +16,101 @@ const gameMap = {
 
 export class Room extends Game {
 	constructor(state, env) {
-		super(state, env);
+		super(state, env, ['rock', 'paper', 'scissors', 'duck', 'startAt', 'nextAt', 'status']);
+
+		this._duck ??= 0;
+		this._rock ??= 0;
+		this._paper ??= 0;
+		this._scissors ??= 0;
+		this._startAt ??= Number.MAX_SAFE_INTEGER;
+		this._nextAt ??= Number.MAX_SAFE_INTEGER;
+		this._status ??= 'none';
 	}
 
-	async update_({ count = false, loser } = {}) {
-		const state = await this.storage.get(['status', 'nextAt']);
-
-		const data = {
-			type: 'update',
-			totalPlayers: this.playerCount,
-			status: state.get('status'),
-			nextAt: state.get('nextAt'),
-		};
-
-		if (count) {
-			count = await this.storage.get(['rock', 'paper', 'scissors', 'duck']);
-			data.rock = count.get('rock');
-			data.paper = count.get('paper');
-			data.scissors = count.get('scissors');
-			data.duck = count.get('duck');
-		}
-
-		if (loser) {
-			data.loser = loser;
-		}
-
-		return this.update(data);
+	reset() {
+		super.reset();
+		this.startsAt = Number.MAX_SAFE_INTEGER;
+		this.status = 'none';
 	}
 
-	async newPlayer(playerId) {
+	get duck() {
+		return this._duck;
+	}
+
+	get rock() {
+		return this._rock;
+	}
+
+	get paper() {
+		return this._paper;
+	}
+
+	get scissors() {
+		return this._scissors;
+	}
+
+	set duck(value) {
+		this._duck = value;
+		this.storage.put('duck', value);
+	}
+
+	set rock(value) {
+		this._rock = value;
+		this.storage.put('rock', value);
+	}
+
+	set paper(value) {
+		this._paper = value;
+		this.storage.put('paper', value);
+	}
+
+	set scissors(value) {
+		this._scissors = value;
+		this.storage.put('scissors', value);
+	}
+
+	get startsAt() {
+		return this._startsAt;
+	}
+	set startsAt(startsAt) {
+		this._startsAt = startsAt;
+		this._nextAt = startsAt;
+		this.storage.put({
+			startsAt,
+			nextAt: startsAt,
+		});
+	}
+
+	get nextAt() {
+		return this._nextAt;
+	}
+	set nextAt(nextAt) {
+		this._nextAt = nextAt;
+		this.storage.put('nextAt', nextAt);
+	}
+	get status() {
+		return this._status;
+	}
+	set status(status) {
+		this._status = status;
+		this.storage.put('status', status);
+	}
+
+	async newPlayer() {
+		this.duck += 1;
 		return {
-			playerId,
+			option: 'duck',
 		};
 	}
 
-	async deletePlayer(playerId, player) {
-		console.log(playerId, player);
+	async deletePlayer(player) {
+		const option = player.option;
+
+		this[option] -= 1;
+	}
+
+	canCallNextTurn({ wsData, data }) {
+		return wsData.isAdmin && data.status === this.status && data.nextAt === this.nextAt;
 	}
 
 	async setLoser(loser) {
@@ -65,44 +124,6 @@ export class Room extends Game {
 				player.serializeAttachment(attachment);
 				player.send(JSON.stringify({ type: 'loser' }));
 			}
-		}
-	}
-
-	async alarm() {
-		try {
-			const webSockets = this.state.getWebSockets();
-			if (webSockets.length === 0) {
-				console.info('No players');
-				this.storage.deleteAll();
-				return;
-			}
-
-			const status = await this.storage.get('status');
-
-			switch (status) {
-				case 'waiting':
-					return this.alarmStartGame();
-
-				case 'playing': {
-					console.info('Waiting');
-					const nextAt = Date.now() + 1000 * 60;
-					await this.storage.put({
-						status: 'playing',
-						nextAt,
-					});
-					this.update();
-					setTimeout(async () => {
-						await this.storage.setAlarm(nextAt);
-					}, 1);
-					break;
-				}
-				default: {
-					console.log({ status });
-					return;
-				}
-			}
-		} catch (error) {
-			console.error(error);
 		}
 	}
 
@@ -146,29 +167,6 @@ export class Room extends Game {
 				}),
 			);
 		});
-	}
-
-	async webSocketMessage(ws, msg) {
-		const data = JSON.parse(msg);
-
-		const wsData = ws.deserializeAttachment();
-
-		switch (data.type) {
-			case 'play':
-				if (!wsData.isPlayer) {
-					return;
-				}
-				this.play(wsData.playerId, data.option);
-				break;
-			case 'clientSideAlarm':
-				if (!wsData.isAdmin) {
-					return;
-				}
-				await this.clientSideAlarm(data);
-				break;
-			default:
-				console.debug(data);
-		}
 	}
 
 	async isAvailable(request) {
@@ -230,5 +228,86 @@ export class Room extends Game {
 
 		await this.setLoser(optionsArray[2][0]);
 		return this.update({ count: true, loser: optionsArray[2][0] });
+	}
+
+	async alarm() {
+		try {
+			const webSockets = this.state.getWebSockets();
+			if (webSockets.length === 0) {
+				console.info('No players');
+				this.storage.deleteAll();
+				return;
+			}
+
+			switch (this.status) {
+				case 'waiting':
+					return this.alarmStartGame();
+
+				case 'playing': {
+					this.nextAt = Date.now() + 1000 * 60;
+					this.update();
+					break;
+				}
+				default: {
+					console.log({ status });
+					return;
+				}
+			}
+		} catch (error) {
+			console.error(error);
+		}
+	}
+
+	async alarmStartGame() {
+		this.status = 'playing';
+		this.nextAt = Date.now() + 1000 * 60;
+		this.update();
+	}
+
+	async newMatch(request) {
+		// Check if the match has already started and there are no players
+		if (this.startsAt < Date.now() && this.playerCount === 0) {
+			this.status = 'ended';
+		}
+
+		switch (this.status) {
+			case 'playing':
+			case 'waiting':
+				// If the match is playing or waiting, try login as admin
+				return this.loginAdmin(request, 'The name is being used and the password is wrong');
+			case 'ended':
+			case 'none':
+			default:
+				// If the match is ended or none, delete all data from storage and continue
+				this.reset();
+		}
+
+		// Get the name, nextAt, and password from the request body
+		const { name, nextAt, password } = await request.json();
+
+		// Convert nextAt to milliseconds
+		const nextAtms = new Date(nextAt).getTime();
+
+		this.status = 'waiting';
+		this.startsAt = nextAtms;
+
+		return super.newMatch({
+			name,
+			password,
+		});
+	}
+
+	async nextTurn(wsData) {
+		if (wsData.status !== this.status || wsData.nextAt !== this.nextAt) {
+			return;
+		}
+
+		if (!this.canCallNextTurn) {
+			return;
+		}
+	}
+
+	canJoin() {
+		return this.status === 'waiting';
 	}
 }
