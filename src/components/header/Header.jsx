@@ -17,7 +17,7 @@ export function Header() {
       setTimeToNext(data.nextAt - Date.now());
     }
 
-    if (data.playerCount) {
+    if (data.playerCount !== undefined) {
       setNumberOfPlayers(data.playerCount);
     }
 
