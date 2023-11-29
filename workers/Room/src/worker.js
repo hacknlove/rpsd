@@ -249,7 +249,7 @@ export class Room extends Game {
 					break;
 				}
 				default: {
-					console.log({ status });
+					console.log({ status: this.status });
 					return;
 				}
 			}

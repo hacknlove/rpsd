@@ -11,7 +11,6 @@ export function Waiting() {
   });
 
   function onMessage(data) {
-    console.log(data);
     switch (data.status) {
       case "waiting":
         setWaiting(true);

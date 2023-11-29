@@ -1,13 +1,13 @@
 ---
 import Layout from "@/layouts/Layout.astro";
 import { UnlimitedLinks } from "@/components/controller/unlimitedLinks/UnlimitedLinks";
-import "@/js/clientAlarm";
+import "@/js/manageTurns";
 import { Header } from "@/components/header/Header";
 ---
 
 <Layout title="Rock, Paper, Scissors, Duck">
     <Header client:idle />
-    <script src="@/js/clientAlarm.js"></script>
+    <script src="@/js/manageTurns.js"></script>
     <main>
         <h1>Rock, Paper, Scissors, Duck</h1>
         <UnlimitedLinks client:idle />

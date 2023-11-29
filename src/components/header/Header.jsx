@@ -13,9 +13,7 @@ export function Header() {
   });
 
   function onMessage(data) {
-    console.log(data);
     if (data.nextAt) {
-      console.log("here");
       setTimeToNext(data.nextAt - Date.now());
     }
 
@@ -64,7 +62,6 @@ export function Header() {
 
   function formatedTimeToNext() {
     const miliseconds = timeToNext();
-    console.log(miliseconds);
 
     const text =
       processInterval(miliseconds, 1000 * 60 * 60 * 24, "day", "days") ||
