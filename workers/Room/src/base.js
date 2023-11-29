@@ -257,7 +257,7 @@ export class Game {
 		const existsPlayer = await this.existsPlayer(playerId);
 
 		// If the game has started and the player does not exist, return an error
-		if (!existsPlayer && this.canJoin(playerId)) {
+		if (!existsPlayer && !this.canJoin(playerId)) {
 			return this.sendRestJSON({
 				error: 'The Game has started. No new players allowed',
 			});
