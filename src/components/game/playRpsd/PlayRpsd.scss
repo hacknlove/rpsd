@@ -6,11 +6,17 @@
   align-items: center;
 
   justify-items: center;
-  height: 100vh;
+  height: calc(100vh - 50px);
+  margin-top: 50px;
 
   button {
-    font-size: 2rem;
-    padding: 1rem;
+    width: 45vw;
+    height: 40vh;
+    font-size: 6vmin;
+    padding: 3vmin;
+    flex-direction: column;
+    justify-content: center;
+    display: flex;
     border: 3px solid #0002;
     border-radius: 0.5rem;
     cursor: pointer;
