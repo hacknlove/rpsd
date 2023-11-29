@@ -22,7 +22,7 @@ websocket.addEventListener("message", (event) => {
   nextUpdateTimeout = setTimeout(() => {
     websocket.send(
       JSON.stringify({
-        type: "clientSideAlarm",
+        type: "nextTurn",
         status: data.status,
         nextAt: data.nextAt,
       }),

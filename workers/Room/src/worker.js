@@ -297,14 +297,15 @@ export class Room extends Game {
 		});
 	}
 
-	async nextTurn(wsData) {
-		if (wsData.status !== this.status || wsData.nextAt !== this.nextAt) {
+	async nextTurn({ data }) {
+		if (data.status !== this.status || data.nextAt !== this.nextAt) {
 			return;
 		}
 
-		if (!this.canCallNextTurn) {
-			return;
-		}
+
+		this.status = 'playing';
+		this.nextAt = Date.now() + 1000 * 10;
+		this.update();
 	}
 
 	canJoin() {
