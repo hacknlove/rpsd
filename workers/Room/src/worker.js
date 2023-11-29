@@ -310,4 +310,10 @@ export class Room extends Game {
 	canJoin() {
 		return this.status === 'waiting';
 	}
+
+	update() {
+		super.update({
+			status: this.status,
+		});
+	}
 }
