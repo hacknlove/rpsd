@@ -291,7 +291,7 @@ export class Game {
 		});
 	}
 
-	async update(data = {}, tag) {
+	update(data = {}, tag) {
 		const everyone = this.state.getWebSockets(tag);
 		const json = JSON.stringify({
 			type: 'update',
