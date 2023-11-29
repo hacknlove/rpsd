@@ -9,7 +9,7 @@ export class Game {
 		this.storage.setAlarm = () => {};
 
 		this._playerCount = 0;
-		this.players = new Map();
+		this._players = new Map();
 
 		this.storage.get(['playerCount', 'players', ...keys]).then((map) => {
 			map.forEach((value, key) => {
@@ -177,7 +177,7 @@ export class Game {
 			const playerId = attachment.playerId;
 
 			// Get the player object from the player ID
-			const player = this.players.get(playerId);
+			const player = this._players.get(playerId);
 
 			// If the player does not exist, return
 			if (!player) {
@@ -201,10 +201,10 @@ export class Game {
 			this.deletePlayer(player, playerId);
 
 			// Remove the player from the players map
-			this.players.delete(playerId);
+			this._players.delete(playerId);
 
 			// Save the updated players map in the storage
-			this.storage.put('players', this.players);
+			this.storage.put('players', this._players);
 
 			// Decrease the player count
 			this.decPlayerCount();
@@ -265,7 +265,7 @@ export class Game {
 
 		// If the player does not exist, add the player to the game
 		if (!existsPlayer) {
-			await this.addPlayer(playerId, this.newPlayer());
+			this.addPlayer(playerId, await this.newPlayer());
 		}
 
 		// Establish the WebSocket connection for the player
@@ -326,17 +326,17 @@ export class Game {
 
 	reset() {
 		this._playerCount = 0;
-		this.players = new Map();
-		this.storage.put('players', this.players);
+		this._players = new Map();
+		this.storage.put('players', this._players);
 	}
 
 	async existsPlayer(playerId) {
-		return this.players.has(playerId);
+		return this._players.has(playerId);
 	}
 
 	async addPlayer(playerId, player) {
-		this.players.set(playerId, player);
-		this.storage.put('players', this.players);
+		this._players.set(playerId, player);
+		this.storage.put('players', this._players);
 		this.incPlayerCount();
 	}
 
