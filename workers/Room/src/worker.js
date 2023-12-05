@@ -16,7 +16,7 @@ const gameMap = {
 
 export class Room extends Game {
 	constructor(state, env) {
-		super(state, env, ['rock', 'paper', 'scissors', 'duck', 'startAt', 'nextAt', 'status']);
+		super(state, env, ['rock', 'paper', 'scissors', 'duck', 'startAt', 'nextAt', 'status', 'ducks', 'rocks', 'papers', 'scissors']);
 
 		this._duck ??= 0;
 		this._rock ??= 0;
@@ -25,6 +25,11 @@ export class Room extends Game {
 		this._startAt ??= Number.MAX_SAFE_INTEGER;
 		this._nextAt ??= Number.MAX_SAFE_INTEGER;
 		this._status ??= 'none';
+
+		this.ducks ??= new Set();
+		this.rocks ??= new Set();
+		this.papers ??= new Set();
+		this.scissors ??= new Set();
 	}
 
 	reset() {
@@ -113,16 +118,17 @@ export class Room extends Game {
 		return wsData.isAdmin && data.status === this.status && data.nextAt === this.nextAt;
 	}
 
-	async setLoser(loser) {
-		const allPlayers = this.state.getWebSockets('player');
 
-		for (const player of allPlayers) {
-			const attachment = player.deserializeAttachment();
-
-			if (attachment.option === loser) {
-				attachment.loser = true;
-				player.serializeAttachment(attachment);
-				player.send(JSON.stringify({ type: 'loser' }));
+	async nextTurn({ wsData, data }) {
+		switch (this.status) {
+			case 'waiting': {
+				this.status = 'playing';
+				this.nextAt = Date.now() + 1000 * 10;
+				this.update();
+				return;
+			}
+			case 'playing': {
+				this.playTurn()
 			}
 		}
 	}
@@ -132,34 +138,35 @@ export class Room extends Game {
 		return this.webSocketClose(ws);
 	}
 
-	async play(playerId, option) {
-		if (!options.has(option)) {
-			return;
-		}
-		const key = `option_${playerId}`;
-		const currentOption = await this.storage.get(key);
+	async play(playerId, data) {
+		const player = await this.getPlayer(playerId);
 
-		if (!currentOption || option === currentOption) {
+		if (!player) {
 			return;
 		}
 
-		this.state.blockConcurrencyWhile(async () => {
-			this.storage.put(key, option);
-			await new Promise.all([
-				async () => option !== 'duck' && this.storage.put(option, (await this.storage.get(option)) + 1),
-				async () => currentOption !== 'duck' && this.storage.put(currentOption, (await this.storage.get(currentOption)) - 1),
-			]);
-		});
+		if (!options.has(data.option)) {
+			return;
+		}
+
+		if (player.option === data.option) {
+			return;
+		}
+
+		if (this.player.option) {
+			this[this.player.option]--
+		}
+
+		this.player.option = data.option;
+		this[data.option] += 1;
 
 		const websockets = this.state.getWebSockets(playerId);
 
+		if (websockets.length <=2) {
+			return;
+		}
+
 		websockets.forEach((ws) => {
-			const attachment = ws.deserializeAttachment();
-
-			attachment.option = option;
-
-			ws.serializeAttachment(attachment);
-
 			ws.send(
 				JSON.stringify({
 					type: 'play',
@@ -195,73 +202,59 @@ export class Room extends Game {
 		return this.sendRestJSON({});
 	}
 
-	async alarmPlay() {
-		const nextAt = Date.now() + 1000 * 60;
-		await this.storage.put({
-			status: 'playing',
-			nextAt,
-		});
+	async playTurn() {
+		this.nextAt = Date.now() + 1000 * 10;
 
-		const optionsCount = await this.storage.get(['rock', 'paper', 'scissors']);
+		const optionsArray = [
+			[ 'rock', this.rock ],
+			[ 'paper', this.paper ],
+			[ 'scissors', this.scissors ],
+		];
 
-		const ducks = await this.storage.get('duck');
-
-		const optionsArray = Object.entries(optionsCount);
 		optionsArray.sort((a, b) => b[1] - a[1]);
 
-		if (ducks > optionsArray[0][1]) {
-			await this.setLoser('duck');
-			return this.update({ count: true, loser: 'duck' });
-		}
-		if (optionsArray[0][1] === optionsArray[1][1] && optionsArray[1][1] === optionsArray[2][1]) {
-			return this.update({ count: true, loser: 'draw' });
-		}
-		if (optionsArray[1][1] !== optionsArray[2][1]) {
-			await this.setLoser(optionsArray[2][0]);
-			return this.update({ count: true, loser: optionsArray[2][0] });
+		
+
+		if (this.ducks > optionsArray[0][1]) {
+			this.setLoser('duck');
 		}
 
-		if (gameMap[optionsArray[1][0]] === optionsArray[2][0]) {
-			await this.setLoser(optionsArray[1][0]);
-			return this.update({ count: true, loser: optionsArray[1][0] });
+		switch (true) {
+			case this.rock === this.paper && this.paper === this.scissors:
+				// triple tie. No one loses.
+				break;
+			case optionsArray[1][1] === optionsArray[2][1]:
+				// tie at the bottom, follows rock, paper, scissors rules.
+				this.setLoser(gameMap[optionsArray[1][0]]);
+				break;
+			default:
+				// No tie. Loses the fewest.
+				this.setLoser(optionsArray[2][0]);
 		}
 
-		await this.setLoser(optionsArray[2][0]);
-		return this.update({ count: true, loser: optionsArray[2][0] });
+	
+		return this.update();
 	}
 
-	async alarm() {
-		try {
-			const webSockets = this.state.getWebSockets();
-			if (webSockets.length === 0) {
-				console.info('No players');
-				this.storage.deleteAll();
-				return;
+	async setLoser(loser) {
+		this.players.entries().forEach(([playerId, player]) => {
+			if (player.option === loser) {
+				
+				this.deletePlayer(player);
 			}
+		});
+		
+		const allPlayers = this.state.getWebSockets('player');
 
-			switch (this.status) {
-				case 'waiting':
-					return this.alarmStartGame();
+		for (const player of allPlayers) {
+			const attachment = player.deserializeAttachment();
 
-				case 'playing': {
-					this.nextAt = Date.now() + 1000 * 60;
-					this.update();
-					break;
-				}
-				default: {
-					console.log({ status: this.status });
-					return;
-				}
+			if (attachment.option === loser) {
+				attachment.loser = true;
+				player.serializeAttachment(attachment);
+				player.send(JSON.stringify({ type: 'loser' }));
 			}
-		} catch (error) {
-			console.error(error);
 		}
-	}
-
-	async alarmStartGame() {
-		this.status = 'playing';
-		this.nextAt = Date.now() + 1000 * 60;
-		this.update();
 	}
 
 	async newMatch(request) {
@@ -297,24 +290,9 @@ export class Room extends Game {
 		});
 	}
 
-	async nextTurn({ data }) {
-		if (data.status !== this.status || data.nextAt !== this.nextAt) {
-			return;
-		}
 
-
-		this.status = 'playing';
-		this.nextAt = Date.now() + 1000 * 10;
-		this.update();
-	}
 
 	canJoin() {
 		return this.status === 'waiting';
-	}
-
-	update() {
-		super.update({
-			status: this.status,
-		});
 	}
 }

@@ -1,6 +1,7 @@
 import { websocket } from "@/js/connectWS";
 
 let nextUpdateTimeout;
+let currentNextAt;
 
 websocket.addEventListener("message", (event) => {
   const data = JSON.parse(event.data);
@@ -12,6 +13,10 @@ websocket.addEventListener("message", (event) => {
   const nextAtms = data.nextAt - Date.now();
 
   if (nextAtms <= 0) {
+    return;
+  }
+
+  if (currentNextAt === nextAtms) {
     return;
   }
 
